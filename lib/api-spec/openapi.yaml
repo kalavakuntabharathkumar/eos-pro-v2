@@ -1,0 +1,619 @@
+openapi: 3.0.3
+info:
+  title: Enterprise OS API
+  version: 1.0.0
+  description: Complete API for Enterprise OS – HRMS, CRM, Finance, ERP, Analytics, AI
+
+servers:
+  - url: /api
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string }
+        version: { type: string }
+        timestamp: { type: string, format: date-time }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        full_name: { type: string }
+        role: { type: string }
+        department_id: { type: integer, nullable: true }
+        is_active: { type: boolean }
+    Department:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        code: { type: string }
+        head_of_department_id: { type: integer, nullable: true }
+        employee_count: { type: integer }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      operationId: getHealthStatus
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      summary: Login and get token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Token pair returned
+
+  /auth/register:
+    post:
+      operationId: registerUser
+      summary: Register a new user account
+      security: []
+      responses:
+        '201': { description: Account created }
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      summary: Get the current authenticated user
+      responses:
+        '200': { description: Current user }
+
+  /hrms/employees:
+    get:
+      operationId: getEmployees
+      summary: List employees with optional search and pagination
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: department_id
+          in: query
+          schema: { type: integer }
+        - name: skip
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200': { description: Employee list with total }
+    post:
+      operationId: createEmployee
+      summary: Create a new employee record
+      responses:
+        '201': { description: Employee created }
+
+  /hrms/employees/{id}:
+    get:
+      operationId: getEmployee
+      summary: Get employee by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Employee }
+    put:
+      operationId: updateEmployee
+      summary: Update employee record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Updated }
+    delete:
+      operationId: deleteEmployee
+      summary: Deactivate employee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Deactivated }
+
+  /hrms/departments:
+    get:
+      operationId: getDepartments
+      summary: List all departments with headcount
+      responses:
+        '200': { description: Department list }
+    post:
+      operationId: createDepartment
+      summary: Create a new department
+      responses:
+        '201': { description: Created }
+
+  /hrms/leaves:
+    get:
+      operationId: getLeaveRequests
+      summary: List leave requests (scoped by role)
+      responses:
+        '200': { description: Leave requests }
+    post:
+      operationId: createLeaveRequest
+      summary: Submit a leave request
+      responses:
+        '201': { description: Submitted }
+
+  /hrms/leaves/{id}/approve:
+    patch:
+      operationId: approveLeave
+      summary: Approve a leave request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Approved }
+
+  /hrms/leaves/{id}/reject:
+    patch:
+      operationId: rejectLeave
+      summary: Reject a leave request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Rejected }
+
+  /hrms/attendance:
+    get:
+      operationId: getAttendance
+      summary: List attendance records
+      responses:
+        '200': { description: Attendance }
+    post:
+      operationId: checkIn
+      summary: Employee check-in
+      responses:
+        '201': { description: Checked in }
+
+  /hrms/attendance/{id}/checkout:
+    patch:
+      operationId: checkOut
+      summary: Employee check-out
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Checked out }
+
+  /hrms/payslips:
+    get:
+      operationId: getPayslips
+      summary: List payslips (scoped by role)
+      responses:
+        '200': { description: Payslips }
+    post:
+      operationId: generatePayslip
+      summary: Generate a payslip for an employee
+      responses:
+        '201': { description: Generated }
+
+  /notifications:
+    get:
+      operationId: getNotifications
+      summary: List notifications for current user
+      responses:
+        '200': { description: Notifications }
+    post:
+      operationId: createNotification
+      summary: Create a notification
+      responses:
+        '201': { description: Created }
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Marked read }
+
+  /crm/leads:
+    get:
+      operationId: getCrmLeads
+      summary: List CRM leads with optional status filter
+      responses:
+        '200': { description: Leads }
+    post:
+      operationId: createCrmLead
+      summary: Create a new CRM lead
+      responses:
+        '201': { description: Created }
+
+  /crm/leads/{id}:
+    put:
+      operationId: updateCrmLead
+      summary: Update a lead record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Updated }
+    delete:
+      operationId: deleteCrmLead
+      summary: Delete a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Deleted }
+
+  /crm/contacts:
+    get:
+      operationId: getCrmContacts
+      summary: List CRM contacts
+      responses:
+        '200': { description: Contacts }
+    post:
+      operationId: createCrmContact
+      summary: Create a CRM contact
+      responses:
+        '201': { description: Created }
+
+  /crm/contacts/{id}:
+    put:
+      operationId: updateCrmContact
+      summary: Update a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Updated }
+    delete:
+      operationId: deleteCrmContact
+      summary: Delete a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Deleted }
+
+  /crm/deals:
+    get:
+      operationId: getCrmDeals
+      summary: List deals with stage totals and pipeline value
+      responses:
+        '200': { description: Deals + pipeline }
+    post:
+      operationId: createCrmDeal
+      summary: Create a deal
+      responses:
+        '201': { description: Created }
+
+  /crm/deals/{id}/stage:
+    patch:
+      operationId: updateDealStage
+      summary: Move a deal to a new pipeline stage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: stage
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Stage updated }
+
+  /finance/invoices:
+    get:
+      operationId: getInvoices
+      summary: List invoices with totals by status
+      responses:
+        '200': { description: Invoices + totals }
+    post:
+      operationId: createInvoice
+      summary: Create an invoice
+      responses:
+        '201': { description: Created }
+
+  /finance/invoices/{id}/status:
+    patch:
+      operationId: updateInvoiceStatus
+      summary: Update invoice status (draft/sent/paid/overdue)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: status
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Updated }
+
+  /finance/expenses:
+    get:
+      operationId: getExpenses
+      summary: List expenses with category breakdown
+      responses:
+        '200': { description: Expenses + category totals }
+    post:
+      operationId: createExpense
+      summary: Submit an expense
+      responses:
+        '201': { description: Submitted }
+
+  /finance/expenses/{id}/approve:
+    patch:
+      operationId: approveExpense
+      summary: Approve an expense claim
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Approved }
+
+  /erp/products:
+    get:
+      operationId: getProducts
+      summary: List products with optional low-stock filter
+      responses:
+        '200': { description: Products }
+    post:
+      operationId: createProduct
+      summary: Create a product
+      responses:
+        '201': { description: Created }
+
+  /erp/vendors:
+    get:
+      operationId: getVendors
+      summary: List vendors
+      responses:
+        '200': { description: Vendors }
+    post:
+      operationId: createVendor
+      summary: Create a vendor
+      responses:
+        '201': { description: Created }
+
+  /erp/purchase-orders:
+    get:
+      operationId: getPurchaseOrders
+      summary: List purchase orders
+      responses:
+        '200': { description: Purchase orders }
+    post:
+      operationId: createPurchaseOrder
+      summary: Create a purchase order
+      responses:
+        '201': { description: Created }
+
+  /erp/purchase-orders/{id}/approve:
+    patch:
+      operationId: approvePurchaseOrder
+      summary: Approve a purchase order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Approved }
+
+  /projects:
+    get:
+      operationId: getProjects
+      summary: List projects
+      responses:
+        '200': { description: Projects }
+    post:
+      operationId: createProject
+      summary: Create a project
+      responses:
+        '201': { description: Created }
+
+  /projects/{id}/tasks:
+    get:
+      operationId: getProjectTasks
+      summary: Get tasks for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Tasks }
+
+  /projects/{id}/milestones:
+    get:
+      operationId: getProjectMilestones
+      summary: Get milestones for a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Milestones }
+
+  /projects/tasks:
+    post:
+      operationId: createTask
+      summary: Create a task
+      responses:
+        '201': { description: Created }
+
+  /projects/timesheets:
+    get:
+      operationId: getTimesheets
+      summary: List timesheets for current user
+      responses:
+        '200': { description: Timesheets }
+    post:
+      operationId: logTime
+      summary: Log time to a task
+      responses:
+        '201': { description: Logged }
+
+  /analytics/hr:
+    get:
+      operationId: getHrAnalytics
+      summary: HR analytics – headcount, attendance, leaves, new hires
+      responses:
+        '200': { description: HR analytics }
+
+  /analytics/finance:
+    get:
+      operationId: getFinanceAnalytics
+      summary: Finance analytics – revenue, expenses by category
+      responses:
+        '200': { description: Finance analytics }
+
+  /analytics/departments:
+    get:
+      operationId: getDepartmentAnalytics
+      summary: Department activity counts
+      responses:
+        '200': { description: Department analytics }
+
+  /analytics/activity-trend:
+    get:
+      operationId: getActivityTrend
+      summary: Activity trend over last 14 days
+      responses:
+        '200': { description: Activity trend }
+
+  /analytics/documents:
+    get:
+      operationId: getDocumentAnalytics
+      summary: Document upload stats and type breakdown
+      responses:
+        '200': { description: Document stats }
+
+  /documents:
+    get:
+      operationId: getDocuments
+      summary: List documents (scoped by role)
+      responses:
+        '200': { description: Documents }
+    post:
+      operationId: uploadDocument
+      summary: Upload a document file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+                title: { type: string }
+      responses:
+        '201': { description: Uploaded }
+
+  /documents/{id}:
+    delete:
+      operationId: deleteDocument
+      summary: Delete a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Deleted }
+
+  /ai/chat:
+    post:
+      operationId: aiChat
+      summary: Chat with the AI copilot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role: { type: string }
+                      content: { type: string }
+      responses:
+        '200': { description: AI reply }
+
+  /support/tickets:
+    get:
+      operationId: getSupportTickets
+      summary: List support tickets
+      responses:
+        '200': { description: Tickets }
+    post:
+      operationId: createSupportTicket
+      summary: Create a support ticket
+      responses:
+        '201': { description: Created }
+
+  /support/tickets/{id}/close:
+    patch:
+      operationId: closeSupportTicket
+      summary: Close a support ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Closed }
