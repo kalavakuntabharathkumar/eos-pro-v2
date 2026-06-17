@@ -1,0 +1,10 @@
+{
+  "name": "enterprise-os",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter frontend run dev",
+    "build": "pnpm --filter frontend run build",
+    "typecheck": "pnpm --filter frontend run typecheck"
+  }
+}
