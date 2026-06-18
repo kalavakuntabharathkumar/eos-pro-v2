@@ -4,6 +4,7 @@ from backend.models import User, LeaveRequest, Department, Attendance
 from datetime import datetime, timedelta
 
 def get_headcount_by_department(db: Session):
+    """Fixed: use outerjoin so departments with 0 employees still appear."""
     results = db.query(Department.name, func.count(User.id).label("count")).outerjoin(
         User, (User.department_id == Department.id) & (User.is_active == True)
     ).group_by(Department.id, Department.name).all()
@@ -16,7 +17,7 @@ def get_leave_stats(db: Session):
     rejected = db.query(LeaveRequest).filter(LeaveRequest.status == "rejected").count()
     return {"total": total, "pending": pending, "approved": approved, "rejected": rejected}
 
-def get_attendance_rate(db: Session, days: int = 30):
+def get_attendance_rate(db: Session, days: int = 30) -> float:
     since = datetime.utcnow() - timedelta(days=days)
     total_employees = db.query(User).filter(User.is_active == True).count()
     if not total_employees:
@@ -25,6 +26,6 @@ def get_attendance_rate(db: Session, days: int = 30):
     expected = total_employees * days
     return round((present_count / expected) * 100, 2) if expected else 0.0
 
-def get_new_hires(db: Session, days: int = 30):
+def get_new_hires(db: Session, days: int = 30) -> int:
     since = datetime.utcnow() - timedelta(days=days)
     return db.query(User).filter(User.created_at >= since, User.is_active == True).count()
