@@ -1,0 +1,46 @@
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import clsx from 'clsx';
+
+const NAV_ITEMS = [
+  { label: 'Dashboard', path: '/dashboard', roles: ['admin','hr','manager','employee','finance','crm'] },
+  { label: 'Employees', path: '/hrms/employees', roles: ['admin','hr','manager','employee'] },
+  { label: 'CRM', path: '/crm', roles: ['admin','crm','manager'] },
+  { label: 'Finance', path: '/finance', roles: ['admin','finance'] },
+  { label: 'ERP', path: '/erp', roles: ['admin'] },
+  { label: 'Projects', path: '/projects', roles: ['admin','manager','employee'] },
+  { label: 'Analytics', path: '/analytics', roles: ['admin','hr','manager','finance'] },
+  { label: 'Documents', path: '/documents', roles: ['admin','hr','manager','employee'] },
+  { label: 'AI Assistant', path: '/ai', roles: ['admin','hr','manager','employee','finance','crm'] },
+  { label: 'Support', path: '/support', roles: ['admin','hr','manager','employee','finance','crm'] },
+];
+
+interface Props { open: boolean; onClose: () => void; }
+
+export default function Sidebar({ open }: Props) {
+  const { user } = useAuth();
+  const role = user?.role || 'employee';
+  const visible = NAV_ITEMS.filter(i => i.roles.includes(role));
+  return (
+    <aside className={clsx('flex flex-col bg-slate-900 text-slate-300 transition-all duration-200 shrink-0',
+      open ? 'w-60' : 'w-0 overflow-hidden')}>
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-700">
+        <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+          <span className="text-white text-xs font-bold">EO</span>
+        </div>
+        <span className="font-semibold text-white text-sm">Enterprise OS</span>
+      </div>
+      <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
+        {visible.map(item => (
+          <NavLink key={item.path} to={item.path}
+            className={({ isActive }) => clsx(
+              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+              isActive ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            )}>
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+    </aside>
+  );
+}
