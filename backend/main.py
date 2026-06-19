@@ -8,7 +8,6 @@ from backend.routers import products, vendors, purchase_orders, projects, timesh
 app = FastAPI(
     title="Enterprise OS API",
     version="1.0.0",
-    description="Full-stack enterprise operating system API",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
@@ -26,7 +25,7 @@ for router in [auth.router, employees.router, departments.router,
 async def startup():
     create_tables()
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["health"])
 async def health():
     from datetime import datetime
     return {"status": "ok", "version": "1.0.0", "timestamp": datetime.utcnow().isoformat()}
