@@ -79,20 +79,12 @@ A unified enterprise operating system covering HR, CRM, ERP, Finance, Projects, 
 ## Setup
 
 ### Prerequisites
-- Node.js 20+ and pnpm
+- Node.js 20+ and pnpm (`npm install -g pnpm`)
 - Python 3.11
 
-### Backend
-
-```bash
-cd backend
-cp .env.example .env          # fill in SECRET_KEY at minimum
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-The database is created and seeded automatically on first startup. Delete `backend/enterprise_os.db` to reset.
-
 ### Frontend
+
+From the project root:
 
 ```bash
 pnpm install
@@ -100,6 +92,31 @@ pnpm --filter @workspace/enterprise-os run dev
 ```
 
 The Vite dev server proxies `/api` requests to the backend at `http://localhost:8000`.
+
+> **Windows note:** `pnpm-workspace.yaml` excludes `esbuild`'s `win32` binaries by default (this project was originally built on Replit, a Linux environment). If `pnpm run dev` fails with `The package "@esbuild/win32-x64" could not be found`, remove the three `esbuild>@esbuild/win32-*` lines from the `overrides` section of `pnpm-workspace.yaml`, then run:
+> ```bash
+> rmdir /s /q node_modules && del pnpm-lock.yaml
+> pnpm install --ignore-scripts
+> ```
+> The `--ignore-scripts` flag is needed because the root `preinstall` script uses `sh`, which isn't available in cmd/PowerShell by default.
+
+### Backend
+
+Python dependencies are listed in `requirements.txt` at the **project root** (not inside `backend/`). Install from the root, then run the server from `backend/`:
+
+```bash
+python -m venv venv
+venv\Scripts\activate        # Windows — use `source venv/bin/activate` on macOS/Linux
+pip install -r requirements.txt
+
+cd backend
+copy .env.example .env       # Windows — use `cp .env.example .env` on macOS/Linux
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Fill in `SECRET_KEY` in `.env` at minimum (see Environment Variables below). The database is created and seeded automatically on first startup. Delete `backend/enterprise_os.db` to reset.
+
+> Note: there is also a `.env.example` in the project root — that one is a stray/unused file (references Postgres, which this project doesn't use). The one that matters is `backend/.env.example`.
 
 ### API codegen (after spec changes)
 
