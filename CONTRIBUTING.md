@@ -1,4 +1,7 @@
 "# Enterprise OS" 
+contributors - Bharath kumar 
+               Nihanth kumar
+               Ashritha 
  
 ## Local setup 
  
