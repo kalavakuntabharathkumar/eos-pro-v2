@@ -1,25 +1,178 @@
 # Enterprise OS
 
-A full-stack enterprise operating system with HRMS, CRM, Finance, ERP, Analytics and AI modules.
+A unified enterprise operating system covering HR, CRM, ERP, Finance, Projects, Analytics, Insights, Workflow Automation, Document Management, and Notifications — all in one platform with role-based access control and department-scoped data visibility.
 
-## Stack
-- Backend: Python 3.11 + FastAPI + PostgreSQL + SQLAlchemy
-- Frontend: React 18 + Vite + TypeScript + Tailwind CSS
+> **Status:** Prototype / Enterprise Architecture Demonstration Project
 
-## Modules
-- HRMS (Employees, Departments, Leaves, Attendance, Payslips)
-- CRM (Leads, Contacts, Deals)
-- Finance (Invoices, Expenses)
-- ERP (Products, Vendors, Purchase Orders)
-- Projects (Tasks, Milestones, Timesheets)
-- Analytics (HR, Finance, Departments, Activity)
-- Documents (Upload, List, Delete)
-- AI Copilot (OpenAI GPT-4o-mini)
-- Support (Tickets)
-- Notifications
+---
 
-## Getting Started
-1. `cp .env.example .env` and fill in your secrets
-2. `pip install -r requirements.txt`
-3. `python -m backend.seed`
-4. `uvicorn backend.main:app --reload`
+## Core Modules
+
+| Module | Description |
+|---|---|
+| **HRMS** | Employee directory, departments, attendance tracking, leave management |
+| **CRM** | Lead pipeline, contact management, deals kanban board |
+| **ERP** | Inventory management, vendor directory, purchase orders |
+| **Finance** | Revenue summary, invoice tracking, expense management |
+| **Projects** | Project cards, task kanban by status, milestones |
+| **Analytics** | KPI metrics, department stats, revenue trend charts |
+| **Insights** | Context-aware intelligence assistant per module |
+| **Workflow Automation** | Trigger-based automation cards with run tracking |
+| **Document Management** | Scoped document storage with visibility controls |
+| **Notifications** | Role-targeted notification inbox |
+| **Activity Tracking** | Audit feed of user and system actions |
+| **RBAC** | Role and permission management with department isolation |
+
+---
+
+## Tech Stack
+
+### Frontend
+- React 19 + TypeScript
+- Vite (build tool)
+- Tailwind CSS v4 + Shadcn UI
+- TanStack Query (server state)
+- Zustand (client state)
+- React Hook Form + Zod (validation)
+- Recharts (charts)
+- react-router-dom v7
+
+### Backend
+- Python 3.11 + FastAPI
+- SQLAlchemy ORM
+- SQLite (file-based, zero-config)
+- JWT authentication (PyJWT)
+- PBKDF2/SHA-256 password hashing (`hashlib`)
+- Uvicorn (ASGI server)
+
+### Shared
+- OpenAPI 3.0 spec (`lib/api-spec/openapi.yaml`) — source of truth for the API
+- Orval — generates TanStack Query hooks and Zod schemas from the spec
+- pnpm workspaces (monorepo)
+
+---
+
+## Security Features
+
+- **JWT authentication** — stateless tokens, 7-day expiry, signed with a required `SECRET_KEY` env var
+- **RBAC** — role and permission tables; middleware enforces permissions per endpoint
+- **Scoped access control** — data visibility filtered by department membership
+- **Department isolation** — employees see only their own department's data where applicable
+- **Password hashing** — PBKDF2-SHA256 via `hashlib` (no third-party dependency)
+- **No credentials in CORS** — `Authorization` header-based auth; wildcard origin is safe
+
+---
+
+## Features
+
+- Personalized dashboards with role-scoped KPI cards and activity feeds
+- Multi-step workflow approvals (leave requests, purchase orders)
+- Scoped analytics — admins see org-wide data; employees see department data
+- CSV export for employees, leads, attendance, and contacts (admin only)
+- Document visibility controls (private / department / public)
+- In-app notifications with role targeting
+- Activity feed with user attribution and timestamps
+- Module-specific Insights assistant with graceful fallback
+
+---
+
+## Setup
+
+### Prerequisites
+- Node.js 20+ and pnpm
+- Python 3.11
+
+### Backend
+
+```bash
+cd backend
+cp .env.example .env          # fill in SECRET_KEY at minimum
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The database is created and seeded automatically on first startup. Delete `backend/enterprise_os.db` to reset.
+
+### Frontend
+
+```bash
+pnpm install
+pnpm --filter @workspace/enterprise-os run dev
+```
+
+The Vite dev server proxies `/api` requests to the backend at `http://localhost:8000`.
+
+### API codegen (after spec changes)
+
+```bash
+pnpm --filter @workspace/api-spec run codegen
+```
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `SECRET_KEY` | **Yes** | JWT signing key — generate with `openssl rand -hex 32` |
+| `ENTERPRISE_DB_URL` | No | SQLite path. Default: `sqlite:///./enterprise_os.db` |
+
+See `backend/.env.example` for a copy-paste template.
+
+---
+
+## Demo Credentials
+
+| Role | Email | Password | Access |
+|---|---|---|---|
+| Admin | `admin@enterpriseos.com` | `admin123` | Full access — all modules, CSV export, user management |
+| Super Admin | `superadmin@enterpriseos.com` | `super123` | Full access + system configuration |
+| HR Manager | `hr@enterpriseos.com` | `hr1234` | Org-wide employee & leave data |
+| Finance Manager | `finance@enterpriseos.com` | `finance123` | Finance module + own employee record |
+| Project Manager | `pm@enterpriseos.com` | `pm1234` | Projects, tasks, milestones |
+| Dept Head (Engineering) | `sarah.chen@co.com` | `dept1234` | Engineering dept employees & leaves |
+| Dept Head (Sales) | `marcus.j@co.com` | `dept1234` | Sales dept employees & leaves |
+| Employee | `employee@enterpriseos.com` | `employee123` | Own records, Projects, Insights, Notifications, Settings |
+
+---
+
+## Architecture Highlights
+
+### Modular backend
+Each domain (HRMS, CRM, Finance, etc.) is an isolated FastAPI router under `backend/app/api/routes/`. Adding a module means adding a router — no changes to other modules required.
+
+### Scoped APIs
+`backend/app/core/scoping.py` centralises data-visibility logic. Routers call scope helpers rather than writing raw filters, keeping access control consistent and auditable.
+
+### Reusable widget system
+Frontend dashboard widgets are independent components keyed to the auth context. Swapping a widget or adding a new KPI card requires no changes to layout or routing.
+
+### Analytics architecture
+Analytics queries are separated from CRUD routers. Aggregate endpoints return pre-computed summaries so the frontend never performs client-side aggregation over raw records.
+
+### SQLite compatibility
+The entire system runs on SQLite with no external database dependency — suitable for demos and single-server deployments. Schema migrations are applied via guarded `ALTER TABLE` statements on startup.
+
+---
+
+## Project Structure
+
+```
+.
+├── frontend/
+│   └── src/
+│       ├── pages/          # Route-level page components
+│       ├── components/     # Shared UI components
+│       └── lib/            # Auth context, utilities
+├── backend/
+│   ├── app/
+│   │   ├── api/routes/     # FastAPI routers (one per domain)
+│   │   ├── core/           # Auth, security, scoping, config
+│   │   ├── models.py       # SQLAlchemy models
+│   │   └── main.py         # App entry point + startup seeding
+│   └── .env.example
+├── lib/
+│   ├── api-spec/           # OpenAPI 3.0 spec (source of truth)
+│   ├── api-client-react/   # Generated TanStack Query hooks
+│   └── api-zod/            # Generated Zod schemas
+└── README.md
+```
