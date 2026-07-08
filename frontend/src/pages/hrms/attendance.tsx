@@ -38,10 +38,16 @@ export default function AttendancePage() {
     return matchStatus && matchSearch;
   }) ?? [];
 
-  const present  = attendance?.filter(r => r.status === "present").length ?? 0;
-  const absent   = attendance?.filter(r => r.status === "absent").length ?? 0;
-  const late     = attendance?.filter(r => r.status === "late").length ?? 0;
-  const total    = attendance?.length ?? 0;
+  // KPI cards summarize a single day (the most recent date present in the
+  // data), not the full attendance history — otherwise counts inflate with
+  // every extra day of records instead of reflecting today's headcount.
+  const latestDate = attendance?.reduce<string | null>((max, r) => (!max || r.date > max ? r.date : max), null);
+  const todaysRecords = latestDate ? attendance?.filter(r => r.date === latestDate) ?? [] : [];
+
+  const present  = todaysRecords.filter(r => r.status === "present").length;
+  const absent   = todaysRecords.filter(r => r.status === "absent").length;
+  const late     = todaysRecords.filter(r => r.status === "late").length;
+  const total    = todaysRecords.length;
   const rate     = total > 0 ? Math.round((present / total) * 100) : 0;
 
   const kpis = [
