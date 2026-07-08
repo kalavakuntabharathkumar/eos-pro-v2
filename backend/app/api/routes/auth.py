@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
-from datetime import timedelta
+from datetime import timedelta, date, datetime
 from app.database import get_db
 from app import models
 from app.core.security import verify_password, get_password_hash, create_access_token, get_current_user
@@ -41,6 +41,20 @@ def login(body: LoginInput, db: Session = Depends(get_db)):
         actor_name=user.name,
         actor_role=user.role,
     )
+    # Mark attendance as present for today on first login of the day.
+    employee = db.query(models.Employee).filter(models.Employee.email == user.email).first()
+    if employee:
+        today = date.today().isoformat()
+        existing = db.query(models.AttendanceRecord).filter(
+            models.AttendanceRecord.employee_id == employee.id,
+            models.AttendanceRecord.date == today,
+        ).first()
+        if not existing:
+            db.add(models.AttendanceRecord(
+                employee_id=employee.id, date=today, status="present",
+                check_in=datetime.now().strftime("%H:%M"),
+            ))
+
     db.commit()
 
     token = create_access_token({"sub": str(user.id)}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
