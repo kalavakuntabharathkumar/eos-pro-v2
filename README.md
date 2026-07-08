@@ -93,7 +93,7 @@ pnpm --filter @workspace/enterprise-os run dev
 
 The Vite dev server proxies `/api` requests to the backend at `http://localhost:8000`.
 
-> **Windows note:** `pnpm-workspace.yaml` excludes `esbuild`'s `win32` binaries by default (this project was originally built on Replit, a Linux environment). If `pnpm run dev` fails with `The package "@esbuild/win32-x64" could not be found`, remove the three `esbuild>@esbuild/win32-*` lines from the `overrides` section of `pnpm-workspace.yaml`, then run:
+> **Windows note:** `pnpm-workspace.yaml` excludes `esbuild`'s `win32` binaries by default (this project was originally built on a Linux environment). If `pnpm run dev` fails with `The package "@esbuild/win32-x64" could not be found`, remove the three `esbuild>@esbuild/win32-*` lines from the `overrides` section of `pnpm-workspace.yaml`, then run:
 > ```bash
 > rmdir /s /q node_modules && del pnpm-lock.yaml
 > pnpm install --ignore-scripts
