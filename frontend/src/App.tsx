@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
+import { PreferencesProvider } from "@/lib/preferences";
 import { AdminGuard } from "@/components/RoleGuard";
 import { PermissionGuard } from "@/components/PermissionGuard";
 
@@ -53,6 +54,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ThemeProvider>
+          <PreferencesProvider>
           <AuthProvider>
             <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <Routes>
@@ -127,6 +129,7 @@ export default function App() {
             </BrowserRouter>
             <Toaster />
           </AuthProvider>
+          </PreferencesProvider>
         </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>

@@ -14,6 +14,7 @@ interface AuthContextType {
   user: UserInfo | null;
   login: (token: string, user: UserInfo) => void;
   logout: () => void;
+  updateUser: (partial: Partial<UserInfo>) => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isEmployee: boolean;
@@ -98,6 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPermissionsLoaded(false);
   };
 
+  const updateUser = (partial: Partial<UserInfo>) => {
+    setUser(prev => (prev ? { ...prev, ...partial } : prev));
+  };
+
   const role = user?.role ?? null;
   const hasPermission = (key: string) => permissions.includes(key);
 
@@ -107,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       login,
       logout,
+      updateUser,
       isAuthenticated: !!token,
       isAdmin: role === "admin",
       isEmployee: role === "employee",

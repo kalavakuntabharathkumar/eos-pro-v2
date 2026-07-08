@@ -1,37 +1,64 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "light" | "dark";
+export type ThemeSetting = "light" | "dark" | "system";
 
 interface ThemeContextType {
-  theme: Theme;
+  theme: ThemeSetting;
+  effectiveTheme: "light" | "dark";
+  setTheme: (t: ThemeSetting) => void;
   toggleTheme: () => void;
-  setTheme: (t: Theme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
+function getSystemTheme(): "light" | "dark" {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(effective: "light" | "dark") {
+  const root = document.documentElement;
+  if (effective === "dark") {
+    root.classList.add("dark");
+  } else {
+    root.classList.remove("dark");
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = localStorage.getItem("eos_theme") as Theme | null;
-    if (stored) return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  const [theme, setThemeState] = useState<ThemeSetting>(() => {
+    const stored = localStorage.getItem("eos_theme") as ThemeSetting | null;
+    if (stored === "light" || stored === "dark" || stored === "system") return stored;
+    // Migrate old "light"/"dark" values
+    return "system";
   });
 
+  const effectiveTheme: "light" | "dark" =
+    theme === "system" ? getSystemTheme() : theme;
+
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
+    applyTheme(effectiveTheme);
     localStorage.setItem("eos_theme", theme);
+  }, [theme, effectiveTheme]);
+
+  // React to OS preference changes when in system mode
+  useEffect(() => {
+    if (theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => applyTheme(mq.matches ? "dark" : "light");
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
   }, [theme]);
 
-  const setTheme = (t: Theme) => setThemeState(t);
-  const toggleTheme = () => setThemeState(prev => prev === "dark" ? "light" : "dark");
+  const setTheme = (t: ThemeSetting) => setThemeState(t);
+
+  const toggleTheme = () =>
+    setThemeState(prev => {
+      const eff = prev === "system" ? getSystemTheme() : prev;
+      return eff === "dark" ? "light" : "dark";
+    });
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, effectiveTheme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

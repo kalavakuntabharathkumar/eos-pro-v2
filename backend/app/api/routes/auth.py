@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 from datetime import timedelta
 from app.database import get_db
 from app import models
@@ -60,4 +61,18 @@ def register(body: RegisterInput, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def get_me(current_user=Depends(get_current_user)):
+    return user_to_dict(current_user)
+
+
+class MeUpdate(BaseModel):
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+
+
+@router.patch("/me")
+def update_me(body: MeUpdate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    for k, v in body.model_dump(exclude_none=True).items():
+        setattr(current_user, k, v)
+    db.commit()
+    db.refresh(current_user)
     return user_to_dict(current_user)

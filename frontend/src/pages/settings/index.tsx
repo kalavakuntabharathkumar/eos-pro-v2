@@ -1,11 +1,11 @@
-import React, { useState } from "react";
-import { useGetMe } from "@workspace/api-client-react";
+import React, { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { usePreferences } from "@/lib/preferences";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -57,46 +57,149 @@ function SectionCard({ title, description, children }: { title: string; descript
   );
 }
 
+/** Resize an image file to at most maxDim×maxDim and return a base64 data URL. */
+function resizeImageToBase64(file: File, maxDim = 256): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = reject;
+      img.src = e.target!.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function SettingsPage() {
-  const { data: user, isLoading } = useGetMe();
-  const { logout } = useAuth();
+  const { user, logout, updateUser, token } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { compactMode, setCompactMode, sidebarCollapsed, setSidebarCollapsed } = usePreferences();
   const navigate = useNavigate();
   const { toast } = useToast();
+
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [notifs, setNotifs] = useState({ email: true, push: false, slack: true, alerts: true });
-  const [name, setName] = useState("");
+  const [name, setName] = useState(user?.name ?? "");
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    if (user?.name) setName(user.name);
-  }, [user]);
+  // Password fields
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  const handleSave = () => {
-    toast({ title: "Changes saved", description: "Your profile has been updated." });
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    try {
+      const dataUrl = await resizeImageToBase64(file, 256);
+      setAvatarPreview(dataUrl);
+    } catch {
+      toast({ title: "Error", description: "Could not process the image.", variant: "destructive" });
+    }
   };
 
-  const handlePasswordChange = () => {
-    toast({ title: "Password email sent", description: "Check your email for a password reset link." });
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast({ title: "Name required", description: "Please enter your full name.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const body: Record<string, string> = { name: name.trim() };
+      if (avatarPreview) body.avatar = avatarPreview;
+
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Failed to save");
+      }
+
+      const updated = await res.json();
+      updateUser({ name: updated.name, avatar: updated.avatar ?? null });
+      if (avatarPreview) setAvatarPreview(null); // persisted; clear preview flag
+
+      toast({ title: "Changes saved", description: "Your profile has been updated." });
+    } catch (err: any) {
+      toast({ title: "Save failed", description: err.message ?? "Could not save changes.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({ title: "All fields required", description: "Please fill in all password fields.", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords do not match", description: "New password and confirmation must match.", variant: "destructive" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: "Password too short", description: "Password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const res = await fetch("/api/profiles/me/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Failed to change password");
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({ title: "Password updated", description: "Your password has been changed successfully." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message ?? "Could not change password.", variant: "destructive" });
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   const handle2FA = () => {
     toast({ title: "2FA setup", description: "Two-factor authentication setup coming soon." });
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 animate-pulse max-w-3xl">
-        <div className="h-8 bg-gray-100 dark:bg-white/5 rounded-lg w-24" />
-        <div className="h-64 bg-gray-100 dark:bg-white/5 rounded-xl" />
-      </div>
-    );
-  }
-
+  const displayAvatar = avatarPreview ?? user?.avatar ?? null;
   const initials = user?.name?.slice(0, 2).toUpperCase() || "U";
 
   return (
@@ -147,15 +250,20 @@ export default function SettingsPage() {
           {activeTab === "profile" && (
             <>
               <SectionCard title="Personal Information" description="Update your name and profile photo.">
+                {/* Avatar upload */}
                 <div className="flex items-center gap-5 mb-6">
                   <div className="relative">
                     <Avatar className="h-16 w-16 ring-2 ring-gray-100 dark:ring-white/10">
-                      <AvatarImage src={user?.avatar || ""} />
-                      <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-indigo-500 to-violet-600 text-white">{initials}</AvatarFallback>
+                      <AvatarImage src={displayAvatar ?? ""} />
+                      <AvatarFallback className="text-lg font-bold bg-gradient-to-br from-indigo-500 to-violet-600 text-white">
+                        {initials}
+                      </AvatarFallback>
                     </Avatar>
                     <button
-                      onClick={() => toast({ title: "Upload avatar", description: "File picker coming soon." })}
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
                       className="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 hover:bg-indigo-700 rounded-full flex items-center justify-center shadow-sm transition-colors"
+                      title="Upload photo"
                     >
                       <Camera className="w-3 h-3 text-white" />
                     </button>
@@ -164,13 +272,23 @@ export default function SettingsPage() {
                     <p className="text-sm font-semibold text-gray-900 dark:text-white">{user?.name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.role}</p>
                     <button
-                      onClick={() => toast({ title: "Upload avatar", description: "File picker coming soon." })}
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
                       className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1 font-medium transition-colors"
                     >
-                      Change photo
+                      {avatarPreview ? "Change photo (unsaved)" : "Change photo"}
                     </button>
                   </div>
                 </div>
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFileChange}
+                />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -210,9 +328,13 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="mt-5 flex justify-end">
-                  <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 gap-1.5 shadow-sm shadow-indigo-600/20">
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 gap-1.5 shadow-sm shadow-indigo-600/20"
+                  >
                     <Save className="w-3.5 h-3.5" />
-                    Save changes
+                    {saving ? "Saving…" : "Save changes"}
                   </Button>
                 </div>
               </SectionCard>
@@ -246,35 +368,35 @@ export default function SettingsPage() {
               <SectionCard title="Theme" description="Choose your preferred color scheme.">
                 <div className="grid grid-cols-3 gap-3">
                   {([
-                    { id: "light", label: "Light", icon: Sun },
-                    { id: "dark", label: "Dark", icon: Moon },
-                    { id: "system", label: "System", icon: Monitor },
-                  ] as const).map(opt => {
+                    { id: "light" as const,  label: "Light",  icon: Sun },
+                    { id: "dark" as const,   label: "Dark",   icon: Moon },
+                    { id: "system" as const, label: "System", icon: Monitor },
+                  ]).map(opt => {
                     const Icon = opt.icon;
-                    const isActive = theme === opt.id || (opt.id === "system" && false);
+                    const isActive = theme === opt.id;
                     return (
                       <button
                         key={opt.id}
-                        onClick={() => opt.id !== "system" ? setTheme(opt.id as "light" | "dark") : toast({ title: "System theme", description: "Follows your OS preference." })}
+                        onClick={() => setTheme(opt.id)}
                         className={cn(
                           "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
-                          theme === opt.id
+                          isActive
                             ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10"
                             : "border-gray-100 dark:border-white/8 bg-gray-50 dark:bg-white/3 hover:border-gray-200 dark:hover:border-white/15"
                         )}
                       >
-                        {theme === opt.id && (
+                        {isActive && (
                           <div className="absolute top-2 right-2 w-4 h-4 bg-indigo-600 rounded-full flex items-center justify-center">
                             <Check className="w-2.5 h-2.5 text-white" />
                           </div>
                         )}
                         <div className={cn(
                           "w-8 h-8 rounded-lg flex items-center justify-center",
-                          theme === opt.id ? "bg-indigo-100 dark:bg-indigo-500/20" : "bg-white dark:bg-white/5"
+                          isActive ? "bg-indigo-100 dark:bg-indigo-500/20" : "bg-white dark:bg-white/5"
                         )}>
-                          <Icon className={cn("w-4 h-4", theme === opt.id ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500")} />
+                          <Icon className={cn("w-4 h-4", isActive ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500")} />
                         </div>
-                        <span className={cn("text-xs font-semibold", theme === opt.id ? "text-indigo-700 dark:text-indigo-400" : "text-gray-600 dark:text-gray-400")}>
+                        <span className={cn("text-xs font-semibold", isActive ? "text-indigo-700 dark:text-indigo-400" : "text-gray-600 dark:text-gray-400")}>
                           {opt.label}
                         </span>
                       </button>
@@ -283,21 +405,33 @@ export default function SettingsPage() {
                 </div>
               </SectionCard>
 
-              <SectionCard title="Display" description="Customize the interface density and font size.">
+              <SectionCard title="Display" description="Customize the interface density and sidebar behaviour.">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">Compact mode</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Reduce spacing for more content on screen</p>
                     </div>
-                    <ToggleSwitch checked={false} onChange={() => toast({ title: "Compact mode", description: "This preference will be saved." })} />
+                    <ToggleSwitch
+                      checked={compactMode}
+                      onChange={(v) => {
+                        setCompactMode(v);
+                        toast({ title: v ? "Compact mode on" : "Compact mode off", description: "Layout updated." });
+                      }}
+                    />
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-gray-50 dark:border-white/5">
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">Sidebar collapsed by default</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Start with the sidebar minimized</p>
                     </div>
-                    <ToggleSwitch checked={false} onChange={() => toast({ title: "Sidebar preference", description: "This preference will be saved." })} />
+                    <ToggleSwitch
+                      checked={sidebarCollapsed}
+                      onChange={(v) => {
+                        setSidebarCollapsed(v);
+                        toast({ title: v ? "Sidebar collapsed" : "Sidebar expanded", description: "Preference saved." });
+                      }}
+                    />
                   </div>
                 </div>
               </SectionCard>
@@ -347,20 +481,42 @@ export default function SettingsPage() {
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-gray-700 dark:text-gray-300">Current password</Label>
-                    <Input type="password" placeholder="••••••••" className="h-9 text-sm bg-white dark:bg-white/5 border-gray-200 dark:border-white/10" />
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={currentPassword}
+                      onChange={e => setCurrentPassword(e.target.value)}
+                      className="h-9 text-sm bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-gray-700 dark:text-gray-300">New password</Label>
-                    <Input type="password" placeholder="••••••••" className="h-9 text-sm bg-white dark:bg-white/5 border-gray-200 dark:border-white/10" />
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      className="h-9 text-sm bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-gray-700 dark:text-gray-300">Confirm new password</Label>
-                    <Input type="password" placeholder="••••••••" className="h-9 text-sm bg-white dark:bg-white/5 border-gray-200 dark:border-white/10" />
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      className="h-9 text-sm bg-white dark:bg-white/5 border-gray-200 dark:border-white/10"
+                    />
                   </div>
                   <div className="pt-2">
-                    <Button onClick={handlePasswordChange} className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 gap-1.5 shadow-sm shadow-indigo-600/20">
+                    <Button
+                      onClick={handlePasswordChange}
+                      disabled={savingPassword}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 gap-1.5 shadow-sm shadow-indigo-600/20"
+                    >
                       <Key className="w-3.5 h-3.5" />
-                      Update password
+                      {savingPassword ? "Updating…" : "Update password"}
                     </Button>
                   </div>
                 </div>

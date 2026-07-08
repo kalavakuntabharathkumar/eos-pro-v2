@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { usePreferences } from "@/lib/preferences";
 import { Bell, Search, ChevronRight, Sun, Moon, Settings, LogOut, User2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
@@ -55,8 +56,10 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
     <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#0f1117] border border-gray-100 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
       <div className="px-4 py-3.5 border-b border-gray-50 dark:border-white/8">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-            {initials}
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+            {user?.avatar
+              ? <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              : initials}
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{user?.name ?? "Loading..."}</p>
@@ -92,7 +95,8 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
 
 export function AppLayout() {
   const { isAuthenticated, user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { effectiveTheme, toggleTheme } = useTheme();
+  const { compactMode, sidebarCollapsed } = usePreferences();
   const location = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -130,10 +134,13 @@ export function AppLayout() {
     { label: "Settings", path: "/settings" },
   ].filter(s => !searchQuery || s.label.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  const sidebarWidth = sidebarCollapsed ? "ml-16" : "ml-64";
+  const contentPadding = compactMode ? "p-4" : "p-8";
+
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-background text-foreground">
       <Sidebar />
-      <div className="flex-1 ml-64 flex flex-col min-h-screen">
+      <div className={cn("flex-1 flex flex-col min-h-screen transition-all duration-200", sidebarWidth)}>
         <header className="sticky top-0 z-30 bg-white dark:bg-[#080c14] border-b border-gray-100 dark:border-white/5 px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             {breadcrumbs.map((crumb, i) => (
@@ -187,8 +194,8 @@ export function AppLayout() {
 
             <button onClick={toggleTheme}
               className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-              {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-gray-500" />}
+              title={effectiveTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              {effectiveTheme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-gray-500" />}
             </button>
 
             <NotificationDropdown />
@@ -197,18 +204,21 @@ export function AppLayout() {
               <button
                 onClick={() => setShowUserMenu(v => !v)}
                 className={cn(
-                  "w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white shadow-sm transition-all ring-2",
-                  showUserMenu ? "ring-indigo-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900" : "ring-transparent"
+                  "w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold text-white shadow-sm transition-all ring-2",
+                  showUserMenu ? "ring-indigo-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-900" : "ring-transparent",
+                  !user?.avatar && "bg-gradient-to-br from-indigo-500 to-violet-600"
                 )}
               >
-                {initials}
+                {user?.avatar
+                  ? <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                  : initials}
               </button>
               {showUserMenu && <UserDropdown onClose={() => setShowUserMenu(false)} />}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-8">
+        <main className={cn("flex-1", contentPadding)}>
           <Outlet />
         </main>
       </div>

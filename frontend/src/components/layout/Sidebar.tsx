@@ -2,13 +2,15 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { usePreferences } from "@/lib/preferences";
 import {
   LayoutDashboard, Users, Briefcase, Package, CreditCard,
   Target, BarChart2, Bot, Settings, Bell, FolderOpen,
   Workflow, ChevronDown, ChevronRight, Building2, Calendar,
   UserCheck, ShoppingCart, FileText, Receipt, LogOut,
   TrendingUp, ClipboardList, UserCircle, Shield,
-  Megaphone, Clock, LifeBuoy, FileSearch, Map, DollarSign
+  Megaphone, Clock, LifeBuoy, FileSearch, Map, DollarSign,
+  PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 
 interface NavItem {
@@ -25,7 +27,6 @@ interface NavGroup {
   requiredPermission?: string;
 }
 
-// Role display labels — covers legacy roles and new RBAC roles
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrator",
   employee: "Employee",
@@ -36,7 +37,6 @@ const ROLE_LABELS: Record<string, string> = {
   department_head: "Department Head",
 };
 
-// Badge color per role category
 function roleBadgeClass(role: string): string {
   if (role === "admin" || role === "super_admin") return "bg-indigo-500/15 text-indigo-400";
   if (role === "hr_manager" || role === "department_head") return "bg-amber-500/15 text-amber-400";
@@ -45,8 +45,6 @@ function roleBadgeClass(role: string): string {
   return "bg-white/10 text-white/50";
 }
 
-// Full platform nav — items gate themselves via requiredPermission.
-// Shown to any user who is not a plain "employee" (isEmployee === false).
 const ADMIN_NAV: NavGroup[] = [
   {
     title: "Overview",
@@ -133,7 +131,6 @@ const ADMIN_NAV: NavGroup[] = [
   },
 ];
 
-// Personal-view nav for plain employees
 const EMPLOYEE_NAV: NavGroup[] = [
   {
     title: "Overview",
@@ -185,10 +182,9 @@ export function Sidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const { logout, user, isEmployee, hasPermission, permissionsLoaded } = useAuth();
+  const { sidebarCollapsed, setSidebarCollapsed } = usePreferences();
   const navigate = useNavigate();
 
-  // Non-employee users (admin, hr_manager, finance_manager, etc.) see the platform nav;
-  // plain employees see the personal nav.
   const useAdminNav = !isEmployee;
 
   const [expanded, setExpanded] = useState<string[]>(
@@ -201,9 +197,6 @@ export function Sidebar() {
     );
   };
 
-  // Filter platform nav items by the user's live permissions.
-  // If permissions haven't loaded yet, render the group structure without item-level filtering
-  // so there's no jarring layout shift once they arrive.
   const filteredAdminNav: NavGroup[] = ADMIN_NAV.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
@@ -228,45 +221,92 @@ export function Sidebar() {
   const role = user?.role ?? "employee";
   const roleLabel = ROLE_LABELS[role] ?? role;
 
+  const collapsed = sidebarCollapsed;
+
   return (
-    <div className="w-64 bg-[#0f1117] text-white flex flex-col h-screen fixed top-0 left-0 z-40">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-white/5">
-        <div className="flex items-center gap-2.5">
+    <div className={cn(
+      "bg-[#0f1117] text-white flex flex-col h-screen fixed top-0 left-0 z-40 transition-all duration-200",
+      collapsed ? "w-16" : "w-64"
+    )}>
+      {/* Logo + collapse toggle */}
+      <div className={cn("px-3 py-4 border-b border-white/5 flex items-center", collapsed ? "justify-center" : "justify-between px-5")}>
+        {!collapsed && (
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-lg flex-shrink-0"
+              style={{ backgroundImage: 'url(/logo.png)', backgroundSize: '300%', backgroundPosition: 'center 8%' }}
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white tracking-tight">Enterprise OS</p>
+              <p className="text-[10px] text-white/30 tracking-wide">Unified Platform</p>
+            </div>
+          </div>
+        )}
+        {collapsed && (
           <div className="w-8 h-8 rounded-lg flex-shrink-0"
             style={{ backgroundImage: 'url(/logo.png)', backgroundSize: '300%', backgroundPosition: 'center 8%' }}
           />
-          <div>
-            <p className="text-sm font-bold text-white tracking-tight">Enterprise OS</p>
-            <p className="text-[10px] text-white/30 tracking-wide">Unified Platform</p>
-          </div>
-        </div>
+        )}
+        <button
+          onClick={() => setSidebarCollapsed(!collapsed)}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "text-white/30 hover:text-white/70 transition-colors p-1 rounded",
+            collapsed && "mt-0"
+          )}
+        >
+          {collapsed
+            ? <PanelLeftOpen className="w-4 h-4" />
+            : <PanelLeftClose className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Role badge */}
-      <div className="px-4 py-2 border-b border-white/5">
-        <div className={cn(
-          "flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-semibold w-fit",
-          roleBadgeClass(role)
-        )}>
-          {useAdminNav ? <Shield className="w-3 h-3" /> : <UserCircle className="w-3 h-3" />}
-          {roleLabel}
+      {!collapsed && (
+        <div className="px-4 py-2 border-b border-white/5">
+          <div className={cn(
+            "flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-semibold w-fit",
+            roleBadgeClass(role)
+          )}>
+            {useAdminNav ? <Shield className="w-3 h-3" /> : <UserCircle className="w-3 h-3" />}
+            {roleLabel}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto py-3 px-3">
+      <div className="flex-1 overflow-y-auto py-3 px-2">
         {navGroups.map((group) => (
           <div key={group.title} className="mb-4">
-            <p className="px-3 text-[10px] font-semibold text-white/25 uppercase tracking-widest mb-1.5">
-              {group.title}
-            </p>
+            {!collapsed && (
+              <p className="px-3 text-[10px] font-semibold text-white/25 uppercase tracking-widest mb-1.5">
+                {group.title}
+              </p>
+            )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const active = isGroupActive(item);
                 const isExpanded = expanded.includes(item.href);
                 const hasChildren = item.children && item.children.length > 0;
+
+                if (collapsed) {
+                  // Icon-only mode: navigate directly, no sub-menus shown
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      title={item.name}
+                      className={cn(
+                        "flex items-center justify-center w-10 h-10 mx-auto rounded-lg text-sm transition-all duration-150",
+                        isActive(item.href) || active
+                          ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30"
+                          : "text-white/50 hover:text-white/80 hover:bg-white/5"
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </Link>
+                  );
+                }
 
                 return (
                   <div key={item.href}>
@@ -330,22 +370,34 @@ export function Sidebar() {
 
       {/* User profile */}
       <div className="border-t border-white/5 p-3">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-sm">
-            {initials}
+        {collapsed ? (
+          <div className="flex justify-center">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-sm">
+              {user?.avatar
+                ? <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                : initials}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-white/80 truncate">{user?.name ?? "Loading..."}</p>
-            <p className="text-[10px] text-white/30 truncate">{roleLabel}</p>
+        ) : (
+          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-sm">
+              {user?.avatar
+                ? <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                : initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white/80 truncate">{user?.name ?? "Loading..."}</p>
+              <p className="text-[10px] text-white/30 truncate">{roleLabel}</p>
+            </div>
+            <button
+              onClick={() => { logout(); navigate("/login"); }}
+              title="Sign out"
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-red-400 text-white/30"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => { logout(); navigate("/login"); }}
-            title="Sign out"
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-red-400 text-white/30"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
