@@ -46,8 +46,3 @@ Thumbs.db
 
 
 
-# Local environment files — not part of the project
-.replit
-replit.md
-.agents/
-.local/
