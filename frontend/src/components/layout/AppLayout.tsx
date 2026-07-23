@@ -4,14 +4,12 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { usePreferences } from "@/lib/preferences";
-import { Bell, Search, ChevronRight, Sun, Moon, Settings, LogOut, User2, X } from "lucide-react";
+import { Bell, Search, ChevronRight, Sun, Moon, LogOut, User2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/hrms": "HRMS — Employees",
-  "/hrms/departments": "HRMS — Departments",
   "/hrms/attendance": "HRMS — Attendance",
   "/hrms/leaves": "HRMS — Leave Requests",
   "/crm": "CRM — Pipeline",
@@ -20,7 +18,6 @@ const pageTitles: Record<string, string> = {
   "/crm/deals": "CRM — Deals",
   "/erp": "ERP — Inventory",
   "/erp/vendors": "ERP — Vendors",
-  "/erp/purchases": "ERP — Purchases",
   "/finance": "Finance — Overview",
   "/finance/invoices": "Finance — Invoices",
   "/finance/expenses": "Finance — Expenses",
@@ -28,17 +25,10 @@ const pageTitles: Record<string, string> = {
   "/analytics": "Analytics",
   "/ai": "Insights",
   "/workflows": "Workflows",
-  "/notifications": "Notifications",
-  "/settings": "Settings",
   "/my-leaves": "My Leaves",
-  "/payslips": "Payslips & Salary",
   "/profile": "My Profile",
-  "/announcements": "Announcements",
-  "/directory": "Team Directory",
   "/timesheets": "Timesheets",
-  "/support": "Support & Requests",
   "/documents": "Document Center",
-  "/calendar": "Calendar",
 };
 
 function UserDropdown({ onClose }: { onClose: () => void }) {
@@ -69,17 +59,9 @@ function UserDropdown({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="py-1.5">
-        <button onClick={() => handleNav("/settings")}
+        <button onClick={() => handleNav("/profile")}
           className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
           <User2 className="w-3.5 h-3.5 text-gray-400" /> View profile
-        </button>
-        <button onClick={() => handleNav("/settings")}
-          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-          <Settings className="w-3.5 h-3.5 text-gray-400" /> Settings
-        </button>
-        <button onClick={() => handleNav("/notifications")}
-          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-          <Bell className="w-3.5 h-3.5 text-gray-400" /> Notifications
         </button>
       </div>
 
@@ -131,7 +113,7 @@ export function AppLayout() {
     { label: "Projects", path: "/projects" },
     { label: "Insights", path: "/ai" },
     { label: "Workflows", path: "/workflows" },
-    { label: "Settings", path: "/settings" },
+    { label: "Documents", path: "/documents" },
   ].filter(s => !searchQuery || s.label.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const sidebarWidth = sidebarCollapsed ? "ml-16" : "ml-64";
@@ -197,8 +179,6 @@ export function AppLayout() {
               title={effectiveTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
               {effectiveTheme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-gray-500" />}
             </button>
-
-            <NotificationDropdown />
 
             <div className="relative" ref={userMenuRef}>
               <button

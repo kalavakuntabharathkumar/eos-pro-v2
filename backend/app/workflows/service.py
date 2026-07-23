@@ -161,16 +161,9 @@ class LeaveWorkflowService:
 
     # ── History ────────────────────────────────────────────────────────────────
 
-    def get_logs(self, leave_id: int) -> list[models.WorkflowLog]:
-        return (
-            self.db.query(models.WorkflowLog)
-            .filter(
-                models.WorkflowLog.entity_type == "leave_request",
-                models.WorkflowLog.entity_id == leave_id,
-            )
-            .order_by(models.WorkflowLog.timestamp)
-            .all()
-        )
+    def get_logs(self, leave_id: int) -> list:
+        # WorkflowLog model removed — return empty list
+        return []
 
     # ── Internals ──────────────────────────────────────────────────────────────
 
@@ -181,15 +174,8 @@ class LeaveWorkflowService:
         actor: models.User,
         comments: str | None,
     ) -> None:
-        self.db.add(models.WorkflowLog(
-            entity_type="leave_request",
-            entity_id=entity_id,
-            action=action,
-            performed_by=actor.id,
-            performed_by_name=actor.name,
-            role=actor.role,
-            comments=comments,
-        ))
+        # WorkflowLog model removed — no-op
+        pass
 
     def _notify_action(
         self,

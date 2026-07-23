@@ -33,17 +33,8 @@ _ADMIN_ROLE_NAMES = {"admin", "super admin", "super_admin"}
 
 
 def _resolve_dept_name(user, db: Session) -> Optional[str]:
-    """Return the department name for a user via FK or linked Employee record."""
+    """Return the department name for a user via linked Employee record."""
     from app import models
-
-    if user.department_id:
-        dept = (
-            db.query(models.Department)
-            .filter(models.Department.id == user.department_id)
-            .first()
-        )
-        if dept:
-            return dept.name
 
     emp = (
         db.query(models.Employee)
@@ -97,23 +88,15 @@ def get_effective_scope(user, db: Session) -> dict:
     if role_lower in _FINANCE_ROLE_NAMES:
         return {"level": "finance_manager", "dept": _resolve_dept_name(user, db)}
 
-    # ── 4. Auto-detect department head by employee name matching ──────────────
+    # ── 4. Resolve employee record for dept_head auto-detect and default scope ──
     emp = (
         db.query(models.Employee)
         .filter(models.Employee.email == user.email)
         .first()
     )
-    if emp:
-        dept = (
-            db.query(models.Department)
-            .filter(models.Department.head == emp.name)
-            .first()
-        )
-        if dept:
-            return {"level": "dept_head", "dept": dept.name}
 
     # ── 5. Default: regular employee ─────────────────────────────────────────
-    dept_name = emp.department if emp else _resolve_dept_name(user, db)
+    dept_name = emp.department if emp else None
     return {"level": "employee", "dept": dept_name}
 
 

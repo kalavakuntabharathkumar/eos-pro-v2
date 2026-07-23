@@ -129,12 +129,6 @@ export default function DealsKanbanPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Visualize and manage every deal across your sales stages.</p>
         </div>
         <div className="flex gap-2">
-          {isAdmin && (
-            <a href="/api/export/leads" download
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg hover:bg-gray-50 dark:hover:bg-white/10 transition-colors">
-              <Download className="w-3.5 h-3.5" /> Export CSV
-            </a>
-          )}
           <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/20 gap-1.5"
             onClick={() => setShowAddModal(true)}>
             <Plus className="w-4 h-4" /> New Deal

@@ -101,11 +101,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
 
 @router.get("/activity")
 def get_dashboard_activity(db: Session = Depends(get_db)):
-    notifications = db.query(models.Notification).order_by(models.Notification.created_at.desc()).limit(10).all()
-    return [
-        {"id": n.id, "type": n.type, "title": n.title, "description": n.message, "timestamp": str(n.created_at), "user": None}
-        for n in notifications
-    ]
+    return []
 
 
 @router.get("/charts")

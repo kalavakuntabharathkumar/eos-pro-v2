@@ -81,30 +81,20 @@ function EmployeeSelfStats() {
     queryFn: () => fetchWithAuth("/api/leaves"),
     retry: false,
   });
-  const { data: notifications = [], isLoading: notifsLoading } = useQuery<any[]>({
-    queryKey: ["own-notifications-analytics"],
-    queryFn: () => fetchWithAuth("/api/notifications"),
-    retry: false,
-  });
-
   const pendingLeaves = Array.isArray(leaves)
     ? leaves.filter((l: any) => ["pending_department", "pending_hr", "pending"].includes(l.status)).length
     : 0;
   const approvedLeaves = Array.isArray(leaves)
     ? leaves.filter((l: any) => l.status === "approved").length
     : 0;
-  const unreadNotifs = Array.isArray(notifications)
-    ? notifications.filter((n: any) => !n.read).length
-    : 0;
 
   const stats = [
     { label: "Leave Requests", value: Array.isArray(leaves) ? leaves.length : 0, sub: `${approvedLeaves} approved`, loading: leavesLoading },
     { label: "Pending Approvals", value: pendingLeaves, sub: "awaiting decision", loading: leavesLoading },
-    { label: "Unread Notifications", value: unreadNotifs, sub: "in your inbox", loading: notifsLoading },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
       {stats.map((s) => (
         <Card key={s.label}>
           <CardContent className="pt-5 pb-4 px-5">

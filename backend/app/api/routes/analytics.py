@@ -194,31 +194,30 @@ def get_department_stats(
     db: Session = Depends(get_db),
     _=Depends(require_permission("view_analytics")),
 ):
-    depts = db.query(models.Department).all()
     all_emps = db.query(models.Employee).all()
     all_projects = db.query(models.Project).all()
     all_attendance = db.query(models.AttendanceRecord).all()
 
-    # Build lookup maps for efficiency
+    # Derive department names from employee records
+    dept_names = sorted({e.department for e in all_emps if e.department})
+
     emp_by_dept: dict[str, list] = {}
     for e in all_emps:
         emp_by_dept.setdefault(e.department, []).append(e)
 
     result = []
-    for d in depts:
-        dept_emps = emp_by_dept.get(d.name, [])
+    for dept_name in dept_names:
+        dept_emps = emp_by_dept.get(dept_name, [])
         emp_count = len(dept_emps)
         dept_emp_names = {e.name for e in dept_emps}
         dept_emp_ids = {e.id for e in dept_emps}
 
-        # Performance: average project progress for projects managed by a dept employee
         dept_projects = [p for p in all_projects if p.manager in dept_emp_names]
         if dept_projects:
             avg_progress = round(sum(p.progress for p in dept_projects) / len(dept_projects), 1)
         else:
             avg_progress = 0.0
 
-        # Budget used: attendance rate for dept employees (present+late / total records)
         dept_att = [a for a in all_attendance if a.employee_id in dept_emp_ids]
         if dept_att:
             present = sum(1 for a in dept_att if a.status in ("present", "late"))
@@ -227,7 +226,7 @@ def get_department_stats(
             att_rate = 0.0
 
         result.append({
-            "department": d.name,
+            "department": dept_name,
             "employees": emp_count,
             "performance": avg_progress,
             "budget_used": att_rate,

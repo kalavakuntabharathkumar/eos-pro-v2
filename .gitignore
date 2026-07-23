@@ -41,8 +41,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
-# usage of ai used for the readme file 
-
-
-
-
+# Replit platform internals (not part of the project)
+.replit
+.cache/
+.local/
+.agents/
+replit.nix

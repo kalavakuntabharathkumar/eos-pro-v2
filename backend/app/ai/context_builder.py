@@ -90,20 +90,8 @@ def build_context(user, db: Session, module: str = "general") -> dict:
     except Exception:
         ctx["leaves"] = None
 
-    # ── Notification summary (own user — not scoped to admin-only) ────────────
-    try:
-        notifs = db.query(models.Notification).filter(
-            or_(
-                models.Notification.user_id == user.id,
-                models.Notification.target_role == user.role,
-            )
-        ).all()
-        ctx["notifications"] = {
-            "total": len(notifs),
-            "unread": sum(1 for n in notifs if not n.read),
-        }
-    except Exception:
-        ctx["notifications"] = None
+    # Notification module removed — omit from context
+    ctx["notifications"] = None
 
     # ── Inventory / ERP (admin only — full picture) ───────────────────────────
     if level == "admin":

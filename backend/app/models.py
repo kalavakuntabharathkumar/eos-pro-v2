@@ -37,7 +37,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(String, default="user")
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
-    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+    department_id = Column(Integer, nullable=True)
     avatar = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -55,14 +55,6 @@ class Employee(Base):
     joined_date = Column(String, nullable=False)
     avatar = Column(String, nullable=True)
     location = Column(String, nullable=True)
-
-
-class Department(Base):
-    __tablename__ = "departments"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
-    head = Column(String, nullable=True)
-    description = Column(Text, nullable=True)
 
 
 class AttendanceRecord(Base):
@@ -153,18 +145,6 @@ class Vendor(Base):
     category = Column(String, nullable=True)
 
 
-class Purchase(Base):
-    __tablename__ = "purchases"
-    id = Column(Integer, primary_key=True, index=True)
-    vendor = Column(String, nullable=False)
-    product = Column(String, nullable=False)
-    quantity = Column(Integer, nullable=False)
-    unit_price = Column(Float, nullable=False)
-    total = Column(Float, nullable=False)
-    date = Column(String, nullable=False)
-    status = Column(String, default="pending")
-
-
 class Invoice(Base):
     __tablename__ = "invoices"
     id = Column(Integer, primary_key=True, index=True)
@@ -215,27 +195,46 @@ class Task(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class Milestone(Base):
-    __tablename__ = "milestones"
+class Timesheet(Base):
+    __tablename__ = "timesheets"
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    due_date = Column(String, nullable=False)
-    status = Column(String, default="pending")
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    date = Column(String, nullable=False)
+    hours = Column(Float, nullable=False)
     description = Column(Text, nullable=True)
-
-
-class Notification(Base):
-    __tablename__ = "notifications"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    target_role = Column(String, nullable=True)
-    title = Column(String, nullable=False)
-    message = Column(Text, nullable=False)
-    type = Column(String, default="info")
-    read = Column(Boolean, default=False)
-    link = Column(String, nullable=True)
+    billable = Column(Boolean, default=True)
+    status = Column(String, default="pending")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    doc_type = Column(String, nullable=False)
+    filename = Column(String, nullable=False)
+    size_kb = Column(Integer, default=0)
+    uploaded_by = Column(String, nullable=True)
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    is_company_doc = Column(Boolean, default=False)
+    category = Column(String, nullable=True, default="General")
+    visibility = Column(String, nullable=False, default="private")
+    description = Column(Text, nullable=True)
+    department = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DocumentAccess(Base):
+    """Explicit per-user document sharing grants."""
+    __tablename__ = "document_access"
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    user_id = Column(Integer, nullable=False)
+    access_type = Column(String, default="view")
+    granted_by = Column(Integer, nullable=True)
+    granted_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Workflow(Base):
@@ -267,7 +266,7 @@ class WorkflowRun(Base):
     __tablename__ = "workflow_runs"
     id = Column(Integer, primary_key=True, index=True)
     workflow_id = Column(Integer, ForeignKey("workflows.id"), nullable=False)
-    status = Column(String, nullable=False, default="completed")  # running | completed | failed
+    status = Column(String, nullable=False, default="completed")
     started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     duration_ms = Column(Integer, nullable=True)
@@ -283,132 +282,7 @@ class WorkflowExecutionLog(Base):
     step_order = Column(Integer, nullable=False)
     action_type = Column(String, nullable=False)
     target = Column(String, nullable=True)
-    status = Column(String, nullable=False)  # success | failed | skipped
+    status = Column(String, nullable=False)
     message = Column(Text, nullable=True)
     executed_at = Column(DateTime, default=datetime.utcnow)
     run = relationship("WorkflowRun", back_populates="logs")
-
-
-# ── NEW MODELS ────────────────────────────────────────────────────────────────
-
-class Payslip(Base):
-    __tablename__ = "payslips"
-    id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
-    month = Column(String, nullable=False)
-    salary = Column(Float, nullable=False)
-    deductions = Column(Float, default=0)
-    bonus = Column(Float, default=0)
-    final_amount = Column(Float, nullable=False)
-    status = Column(String, default="paid")
-    generated_at = Column(DateTime, default=datetime.utcnow)
-
-
-class EmployeeProfile(Base):
-    __tablename__ = "employee_profiles"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    phone = Column(String, nullable=True)
-    address = Column(Text, nullable=True)
-    emergency_contact = Column(String, nullable=True)
-    emergency_phone = Column(String, nullable=True)
-    skills = Column(Text, nullable=True)
-    bio = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Announcement(Base):
-    __tablename__ = "announcements"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    content = Column(Text, nullable=False)
-    type = Column(String, default="general")
-    pinned = Column(Boolean, default=False)
-    created_by = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Timesheet(Base):
-    __tablename__ = "timesheets"
-    id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
-    date = Column(String, nullable=False)
-    hours = Column(Float, nullable=False)
-    description = Column(Text, nullable=True)
-    billable = Column(Boolean, default=True)
-    status = Column(String, default="pending")
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class SupportRequest(Base):
-    __tablename__ = "support_requests"
-    id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
-    request_type = Column(String, nullable=False)
-    title = Column(String, nullable=False)
-    description = Column(Text, nullable=False)
-    status = Column(String, default="open")
-    priority = Column(String, default="medium")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Document(Base):
-    __tablename__ = "documents"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    doc_type = Column(String, nullable=False)
-    filename = Column(String, nullable=False)
-    size_kb = Column(Integer, default=0)
-    uploaded_by = Column(String, nullable=True)
-    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
-    is_company_doc = Column(Boolean, default=False)
-    # DMS extended fields
-    category = Column(String, nullable=True, default="General")
-    visibility = Column(String, nullable=False, default="private")
-    description = Column(Text, nullable=True)
-    department = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class DocumentAccess(Base):
-    """Explicit per-user document sharing grants."""
-    __tablename__ = "document_access"
-    id = Column(Integer, primary_key=True, index=True)
-    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
-    user_id = Column(Integer, nullable=False)
-    access_type = Column(String, default="view")   # "view" | "edit"
-    granted_by = Column(Integer, nullable=True)
-    granted_at = Column(DateTime, default=datetime.utcnow)
-
-
-# ── Workflow Engine ────────────────────────────────────────────────────────────
-
-class WorkflowLog(Base):
-    """Immutable audit trail for every workflow state transition."""
-    __tablename__ = "workflow_logs"
-    id = Column(Integer, primary_key=True, index=True)
-    entity_type = Column(String, nullable=False)        # e.g. "leave_request"
-    entity_id = Column(Integer, nullable=False)
-    action = Column(String, nullable=False)             # "submitted" | "approved_stage1" | "approved_final" | "rejected"
-    performed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    performed_by_name = Column(String, nullable=True)
-    role = Column(String, nullable=True)                # actor's role string
-    comments = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-
-class ActivityLog(Base):
-    """System-wide activity feed — one row per significant user action."""
-    __tablename__ = "activity_logs"
-    id = Column(Integer, primary_key=True, index=True)
-    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    actor_name = Column(String, nullable=True)
-    actor_role = Column(String, nullable=True)
-    action = Column(String, nullable=False)
-    entity_type = Column(String, nullable=True)
-    entity_id = Column(Integer, nullable=True)
-    description = Column(Text, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)

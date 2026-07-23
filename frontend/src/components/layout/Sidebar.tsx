@@ -5,11 +5,11 @@ import { useAuth } from "@/lib/auth";
 import { usePreferences } from "@/lib/preferences";
 import {
   LayoutDashboard, Users, Briefcase, Package, CreditCard,
-  Target, BarChart2, Bot, Settings, Bell, FolderOpen,
-  Workflow, ChevronDown, ChevronRight, Building2, Calendar,
-  UserCheck, ShoppingCart, FileText, Receipt, LogOut,
+  Target, BarChart2, Bot, FolderOpen,
+  Workflow, ChevronDown, ChevronRight,
+  UserCheck, FileText, Receipt, LogOut,
   TrendingUp, ClipboardList, UserCircle, Shield,
-  Megaphone, Clock, LifeBuoy, FileSearch, Map, DollarSign,
+  Clock, DollarSign,
   PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 
@@ -50,8 +50,6 @@ const ADMIN_NAV: NavGroup[] = [
     title: "Overview",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Notifications", href: "/notifications", icon: Bell },
-      { name: "Announcements", href: "/announcements", icon: Megaphone },
     ],
   },
   {
@@ -64,10 +62,8 @@ const ADMIN_NAV: NavGroup[] = [
         requiredPermission: "manage_employees",
         children: [
           { name: "Employees", href: "/hrms" },
-          { name: "Departments", href: "/hrms/departments" },
           { name: "Attendance", href: "/hrms/attendance" },
           { name: "Leave Requests", href: "/hrms/leaves" },
-          { name: "Team Directory", href: "/directory" },
         ],
       },
       {
@@ -90,7 +86,6 @@ const ADMIN_NAV: NavGroup[] = [
         children: [
           { name: "Inventory", href: "/erp" },
           { name: "Vendors", href: "/erp/vendors" },
-          { name: "Purchases", href: "/erp/purchases" },
         ],
       },
       {
@@ -102,7 +97,6 @@ const ADMIN_NAV: NavGroup[] = [
           { name: "Overview", href: "/finance" },
           { name: "Invoices", href: "/finance/invoices" },
           { name: "Expenses", href: "/finance/expenses" },
-          { name: "Payslips", href: "/payslips" },
         ],
       },
       {
@@ -125,8 +119,6 @@ const ADMIN_NAV: NavGroup[] = [
     title: "System",
     items: [
       { name: "Documents", href: "/documents", icon: FileText },
-      { name: "Support Requests", href: "/support", icon: LifeBuoy },
-      { name: "Settings", href: "/settings", icon: Settings, requiredPermission: "manage_settings" },
     ],
   },
 ];
@@ -136,8 +128,6 @@ const EMPLOYEE_NAV: NavGroup[] = [
     title: "Overview",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Notifications", href: "/notifications", icon: Bell },
-      { name: "Announcements", href: "/announcements", icon: Megaphone },
     ],
   },
   {
@@ -146,21 +136,12 @@ const EMPLOYEE_NAV: NavGroup[] = [
       { name: "My Projects", href: "/projects", icon: FolderOpen },
       { name: "My Leaves", href: "/my-leaves", icon: ClipboardList },
       { name: "Timesheets", href: "/timesheets", icon: Clock },
-      { name: "Calendar", href: "/calendar", icon: Calendar },
     ],
   },
   {
-    title: "People",
+    title: "Resources",
     items: [
-      { name: "Team Directory", href: "/directory", icon: Users },
-    ],
-  },
-  {
-    title: "HR & Finance",
-    items: [
-      { name: "Payslips", href: "/payslips", icon: DollarSign },
       { name: "Documents", href: "/documents", icon: FileText },
-      { name: "Support & Requests", href: "/support", icon: LifeBuoy },
     ],
   },
   {
@@ -173,7 +154,6 @@ const EMPLOYEE_NAV: NavGroup[] = [
     title: "Account",
     items: [
       { name: "My Profile", href: "/profile", icon: UserCircle },
-      { name: "Settings", href: "/settings", icon: Settings },
     ],
   },
 ];
@@ -290,7 +270,6 @@ export function Sidebar() {
                 const hasChildren = item.children && item.children.length > 0;
 
                 if (collapsed) {
-                  // Icon-only mode: navigate directly, no sub-menus shown
                   return (
                     <Link
                       key={item.href}

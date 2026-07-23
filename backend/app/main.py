@@ -4,15 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import create_tables
 from app.api.routes import (
-    auth, dashboard, employees, departments, attendance, leaves,
-    leads, contacts, deals, products, vendors, purchases,
-    invoices, expenses, projects, tasks, milestones,
-    analytics, ai, workflows, notifications, users
+    auth, dashboard, employees, attendance, leaves,
+    leads, contacts, deals, products, vendors,
+    invoices, expenses, projects, tasks,
+    analytics, ai, workflows, timesheets, documents
 )
-from app.api.routes import export
-from app.api.routes import payslips, profiles, announcements, timesheets, support, documents
 from app.api.routes import rbac
-from app.api.routes import activity
 
 app = FastAPI(title="Enterprise OS API", version="1.0.0")
 
@@ -29,7 +26,6 @@ API_PREFIX = "/api"
 app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(dashboard.router, prefix=API_PREFIX)
 app.include_router(employees.router, prefix=API_PREFIX)
-app.include_router(departments.router, prefix=API_PREFIX)
 app.include_router(attendance.router, prefix=API_PREFIX)
 app.include_router(leaves.router, prefix=API_PREFIX)
 app.include_router(leads.router, prefix=API_PREFIX)
@@ -37,26 +33,16 @@ app.include_router(contacts.router, prefix=API_PREFIX)
 app.include_router(deals.router, prefix=API_PREFIX)
 app.include_router(products.router, prefix=API_PREFIX)
 app.include_router(vendors.router, prefix=API_PREFIX)
-app.include_router(purchases.router, prefix=API_PREFIX)
 app.include_router(invoices.router, prefix=API_PREFIX)
 app.include_router(expenses.router, prefix=API_PREFIX)
 app.include_router(projects.router, prefix=API_PREFIX)
 app.include_router(tasks.router, prefix=API_PREFIX)
-app.include_router(milestones.router, prefix=API_PREFIX)
 app.include_router(analytics.router, prefix=API_PREFIX)
 app.include_router(ai.router, prefix=API_PREFIX)
 app.include_router(workflows.router, prefix=API_PREFIX)
-app.include_router(notifications.router, prefix=API_PREFIX)
-app.include_router(users.router, prefix=API_PREFIX)
-app.include_router(export.router, prefix=API_PREFIX)
-app.include_router(payslips.router, prefix=API_PREFIX)
-app.include_router(profiles.router, prefix=API_PREFIX)
-app.include_router(announcements.router, prefix=API_PREFIX)
 app.include_router(timesheets.router, prefix=API_PREFIX)
-app.include_router(support.router, prefix=API_PREFIX)
 app.include_router(documents.router, prefix=API_PREFIX)
 app.include_router(rbac.router, prefix=API_PREFIX)
-app.include_router(activity.router, prefix=API_PREFIX)
 
 
 @app.get("/api/healthz")
@@ -74,15 +60,12 @@ def startup():
     from sqlalchemy import text
     from app.database import engine
 
-    # Maps: (table_name, column_name) → full ALTER TABLE SQL
     _col_migrations = [
         ("users",          "role_id",               "ALTER TABLE users ADD COLUMN role_id INTEGER REFERENCES roles(id)"),
-        ("users",          "department_id",          "ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id)"),
+        ("users",          "department_id",          "ALTER TABLE users ADD COLUMN department_id INTEGER"),
         ("leave_requests", "current_approver_role",  "ALTER TABLE leave_requests ADD COLUMN current_approver_role TEXT"),
         ("leave_requests", "created_at",             "ALTER TABLE leave_requests ADD COLUMN created_at TEXT"),
         ("leave_requests", "updated_at",             "ALTER TABLE leave_requests ADD COLUMN updated_at TEXT"),
-        ("notifications",  "user_id",                "ALTER TABLE notifications ADD COLUMN user_id INTEGER"),
-        ("notifications",  "target_role",            "ALTER TABLE notifications ADD COLUMN target_role TEXT"),
         # DMS extended columns
         ("documents",      "category",               "ALTER TABLE documents ADD COLUMN category TEXT DEFAULT 'General'"),
         ("documents",      "visibility",             "ALTER TABLE documents ADD COLUMN visibility TEXT DEFAULT 'private'"),
@@ -92,7 +75,6 @@ def startup():
     ]
 
     with engine.connect() as _conn:
-        # Cache existing columns per table to avoid redundant PRAGMAs
         _table_cols: dict = {}
         for tbl, col, sql in _col_migrations:
             if tbl not in _table_cols:
@@ -122,19 +104,6 @@ def startup():
         if not db.query(models.User).filter(models.User.email == "employee@enterpriseos.com").first():
             emp_user = models.User(name="Jordan Lee", email="employee@enterpriseos.com", hashed_password=get_password_hash("employee123"), role="employee")
             db.add(emp_user)
-            db.flush()
-
-        # ── Departments ────────────────────────────────────────────────
-        if db.query(models.Department).count() == 0:
-            depts = [
-                models.Department(name="Engineering", head="Sarah Chen", description="Product development and infrastructure"),
-                models.Department(name="Sales", head="Marcus Johnson", description="Revenue generation and client acquisition"),
-                models.Department(name="Marketing", head="Emma Davis", description="Brand, campaigns, and growth"),
-                models.Department(name="HR", head="James Wilson", description="People operations and culture"),
-                models.Department(name="Finance", head="Priya Patel", description="Financial planning and analysis"),
-                models.Department(name="Operations", head="Tom Baker", description="Business operations and logistics"),
-            ]
-            db.add_all(depts)
             db.flush()
 
         # ── Employees ──────────────────────────────────────────────────
@@ -312,18 +281,6 @@ def startup():
                         db.add(step)
             db.flush()
 
-        if db.query(models.Notification).count() == 0:
-            notifications_data = [
-                models.Notification(title="New Lead Assigned", message="Michael Grant from TechCorp has been assigned to you", type="info", read=False, link="/crm/leads"),
-                models.Notification(title="Invoice Overdue", message="Invoice INV-001028 from Nexus Solutions is 10 days overdue", type="warning", read=False, link="/finance/invoices"),
-                models.Notification(title="Project Milestone Reached", message="Data Analytics Pipeline is 88% complete", type="success", read=True, link="/projects"),
-                models.Notification(title="New Employee Added", message="Ben Thompson has joined the Marketing team", type="info", read=True, link="/hrms"),
-                models.Notification(title="Low Stock Alert", message="Office Desk Chair is out of stock", type="warning", read=False, link="/erp"),
-                models.Notification(title="Deal Closed Won", message="Blue Wave Media deal worth $95K has been closed", type="success", read=True, link="/crm/deals"),
-            ]
-            db.add_all(notifications_data)
-            db.flush()
-
         if db.query(models.AttendanceRecord).count() == 0:
             import datetime as dt
             today = dt.date.today()
@@ -343,53 +300,7 @@ def startup():
                 db.add(models.LeaveRequest(employee_id=jordan.id, type="Sick Leave", start_date="2024-01-10", end_date="2024-01-11", status="approved", reason="Flu recovery"))
                 db.add(models.LeaveRequest(employee_id=jordan.id, type="Casual Leave", start_date="2024-02-14", end_date="2024-02-14", status="pending", reason="Personal errand"))
 
-        if db.query(models.Purchase).count() == 0:
-            purchases_data = [
-                models.Purchase(vendor="TechSupply Co", product="Enterprise Server Pro", quantity=10, unit_price=4200, total=42000, date="2024-01-05", status="delivered"),
-                models.Purchase(vendor="NetGear Pro", product="Network Switch 48-Port", quantity=5, unit_price=1100, total=5500, date="2024-01-08", status="delivered"),
-                models.Purchase(vendor="Office World", product="Standing Desk", quantity=20, unit_price=800, total=16000, date="2024-01-12", status="pending"),
-            ]
-            db.add_all(purchases_data)
-
-        if db.query(models.Milestone).count() == 0:
-            milestones_data = [
-                models.Milestone(title="Design System Complete", project_id=1, due_date="2024-01-31", status="completed"),
-                models.Milestone(title="Beta Launch", project_id=1, due_date="2024-03-15", status="pending"),
-                models.Milestone(title="iOS App Store Release", project_id=2, due_date="2024-02-28", status="pending"),
-                models.Milestone(title="Pipeline Go-Live", project_id=3, due_date="2024-01-31", status="completed"),
-            ]
-            db.add_all(milestones_data)
-
-        # ── NEW: Payslips ──────────────────────────────────────────────
-        if db.query(models.Payslip).count() == 0:
-            jordan = db.query(models.Employee).filter(models.Employee.email == "employee@enterpriseos.com").first()
-            sarah = db.query(models.Employee).filter(models.Employee.email == "sarah.chen@co.com").first()
-            months = ["2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06"]
-            for m in months:
-                if jordan:
-                    base = 8166.67
-                    bonus = 500 if m in ["2024-03", "2024-06"] else 0
-                    ded = base * 0.22
-                    db.add(models.Payslip(employee_id=jordan.id, month=m, salary=base, deductions=ded, bonus=bonus, final_amount=base + bonus - ded, status="paid"))
-                if sarah:
-                    base = 12083.33
-                    bonus = 1500 if m in ["2024-03", "2024-06"] else 0
-                    ded = base * 0.24
-                    db.add(models.Payslip(employee_id=sarah.id, month=m, salary=base, deductions=ded, bonus=bonus, final_amount=base + bonus - ded, status="paid"))
-
-        # ── NEW: Announcements ──────────────────────────────────────────
-        if db.query(models.Announcement).count() == 0:
-            anns = [
-                models.Announcement(title="Company Town Hall — June 20th", content="Join us for the quarterly all-hands meeting on June 20th at 3 PM EST. We'll cover Q2 results, product roadmap, and team recognitions. Zoom link will be shared 24hrs before.", type="meeting", pinned=True, created_by="Alex Morgan"),
-                models.Announcement(title="Office Closed — Independence Day", content="The office will be closed on July 4th in observance of Independence Day. Remote employees should update their status in the system.", type="holiday", pinned=True, created_by="HR Team"),
-                models.Announcement(title="New Health Insurance Benefits", content="We've upgraded our health insurance package effective July 1st. All employees will receive enhanced dental and vision coverage. Please review the updated benefits document in the Document Center.", type="hr_update", pinned=False, created_by="James Wilson"),
-                models.Announcement(title="Q2 Revenue Milestone Achieved!", content="We've hit $2.4M in Q2 revenue, surpassing our target by 18%! This is a testament to the incredible work of our sales and engineering teams. Bonuses will be processed this month.", type="company_news", pinned=False, created_by="Alex Morgan"),
-                models.Announcement(title="New Hire Orientation — June 17th", content="Please join us in welcoming 3 new team members joining the Engineering department on June 17th. The orientation will be held in Conference Room B from 9 AM.", type="hr_update", pinned=False, created_by="James Wilson"),
-                models.Announcement(title="System Maintenance — June 15th 2-4 AM", content="Scheduled maintenance for the enterprise platform will occur on June 15th between 2 AM and 4 AM EST. The system will be temporarily unavailable during this window.", type="general", pinned=False, created_by="Sarah Chen"),
-            ]
-            db.add_all(anns)
-
-        # ── NEW: Timesheets ─────────────────────────────────────────────
+        # ── Timesheets ──────────────────────────────────────────────────
         if db.query(models.Timesheet).count() == 0:
             import datetime as dt
             jordan = db.query(models.Employee).filter(models.Employee.email == "employee@enterpriseos.com").first()
@@ -400,18 +311,7 @@ def startup():
                     if d.weekday() < 5:
                         db.add(models.Timesheet(employee_id=jordan.id, project_id=1, date=str(d), hours=8.0, description="Development work on Platform Redesign", billable=True, status="approved" if i > 2 else "pending"))
 
-        # ── NEW: Support Requests ───────────────────────────────────────
-        if db.query(models.SupportRequest).count() == 0:
-            jordan = db.query(models.Employee).filter(models.Employee.email == "employee@enterpriseos.com").first()
-            if jordan:
-                reqs = [
-                    models.SupportRequest(employee_id=jordan.id, request_type="IT", title="Laptop running slow", description="My development laptop has been very slow recently. RAM usage is consistently at 95%. Requesting either a RAM upgrade or hardware replacement.", status="in_progress", priority="high"),
-                    models.SupportRequest(employee_id=jordan.id, request_type="HR", title="Remote work equipment allowance", description="Requesting the standard $500 remote work equipment allowance as a new employee to purchase ergonomic accessories for my home office.", status="open", priority="medium"),
-                    models.SupportRequest(employee_id=jordan.id, request_type="Reimbursement", title="Conference ticket reimbursement", description="Attended NodeConf on June 8th for professional development. Attached receipt for $350 registration fee.", status="resolved", priority="low"),
-                ]
-                db.add_all(reqs)
-
-        # ── DMS: Documents (with visibility + category) ─────────────────
+        # ── DMS: Documents ──────────────────────────────────────────────
         if db.query(models.Document).count() == 0:
             jordan = db.query(models.Employee).filter(models.Employee.email == "employee@enterpriseos.com").first()
             admin_user = db.query(models.User).filter(models.User.email == "admin@enterpriseos.com").first()
@@ -424,18 +324,14 @@ def startup():
             fin_id   = fin_user.id if fin_user else admin_id
 
             docs = [
-                # Organization-wide HR policies
                 models.Document(title="Employee Handbook 2024", doc_type="policy", filename="employee_handbook_2024.pdf", size_kb=2048, uploaded_by="HR Team", uploaded_by_user_id=hr_id, is_company_doc=True, category="HR", visibility="organization", description="Complete employee policy guide for 2024"),
                 models.Document(title="Code of Conduct", doc_type="policy", filename="code_of_conduct.pdf", size_kb=512, uploaded_by="HR Team", uploaded_by_user_id=hr_id, is_company_doc=True, category="HR", visibility="organization", description="Company standards of professional conduct"),
                 models.Document(title="Remote Work Policy", doc_type="policy", filename="remote_work_policy.pdf", size_kb=256, uploaded_by="HR Team", uploaded_by_user_id=hr_id, is_company_doc=True, category="HR", visibility="organization", description="Guidelines for remote and hybrid working arrangements"),
-                # HR-only documents
                 models.Document(title="Benefits Guide 2024", doc_type="policy", filename="benefits_guide_2024.pdf", size_kb=1024, uploaded_by="James Wilson", uploaded_by_user_id=hr_id, is_company_doc=True, category="HR", visibility="hr_only", description="Confidential HR benefits administration guide"),
                 models.Document(title="Salary Bands 2024", doc_type="report", filename="salary_bands_2024.pdf", size_kb=640, uploaded_by="James Wilson", uploaded_by_user_id=hr_id, is_company_doc=True, category="HR", visibility="hr_only", description="Compensation structure and salary ranges by role"),
-                # Finance-only documents
                 models.Document(title="Q1 2024 Financial Report", doc_type="report", filename="q1_2024_financials.pdf", size_kb=1536, uploaded_by="Priya Patel", uploaded_by_user_id=fin_id, is_company_doc=True, category="Finance", visibility="finance_only", description="Quarterly P&L, balance sheet, and forecasts"),
                 models.Document(title="Expense Reimbursement Policy", doc_type="policy", filename="expense_policy.pdf", size_kb=196, uploaded_by="Priya Patel", uploaded_by_user_id=fin_id, is_company_doc=True, category="Finance", visibility="organization", description="How to submit and get approved for expense reimbursements"),
                 models.Document(title="Budget Allocation FY2024", doc_type="report", filename="budget_fy2024.pdf", size_kb=820, uploaded_by="Priya Patel", uploaded_by_user_id=fin_id, is_company_doc=True, category="Finance", visibility="finance_only", description="Department budget allocations and spend limits"),
-                # Engineering department docs
                 models.Document(title="IT Security Guidelines", doc_type="policy", filename="it_security_guidelines.pdf", size_kb=384, uploaded_by="Sarah Chen", uploaded_by_user_id=admin_id, is_company_doc=True, category="IT", visibility="organization", description="Security policies for all staff — password, 2FA, device management"),
                 models.Document(title="Engineering Onboarding Guide", doc_type="guide", filename="eng_onboarding.pdf", size_kb=712, uploaded_by="Sarah Chen", uploaded_by_user_id=admin_id, is_company_doc=True, category="Engineering", visibility="department", department="Engineering", description="Step-by-step guide for new Engineering hires"),
                 models.Document(title="Architecture Decision Records", doc_type="technical", filename="adr_2024.pdf", size_kb=960, uploaded_by="Sarah Chen", uploaded_by_user_id=admin_id, is_company_doc=True, category="Engineering", visibility="department", department="Engineering", description="Key architectural decisions and their rationale"),
@@ -447,20 +343,6 @@ def startup():
                 ]
             db.add_all(docs)
 
-        # ── NEW: Employee Profiles ──────────────────────────────────────
-        if db.query(models.EmployeeProfile).count() == 0:
-            emp_user = db.query(models.User).filter(models.User.email == "employee@enterpriseos.com").first()
-            if emp_user:
-                db.add(models.EmployeeProfile(
-                    user_id=emp_user.id,
-                    phone="+1-555-9988",
-                    address="123 Oak Street, Remote City, CA 94102",
-                    emergency_contact="Riley Lee",
-                    emergency_phone="+1-555-9900",
-                    skills="Python,TypeScript,React,FastAPI,PostgreSQL,Docker",
-                    bio="Full-stack software engineer with 3 years of experience building enterprise applications. Passionate about clean code and developer experience.",
-                ))
-
         # ── RBAC: Roles ─────────────────────────────────────────────────
         ROLE_DEFS = [
             ("Super Admin",       "Full unrestricted access to all modules and settings",   True),
@@ -469,7 +351,7 @@ def startup():
             ("Finance Manager",   "Access to finance, invoices, expenses, and payroll",     True),
             ("Project Manager",   "Manage projects, tasks, milestones, and timesheets",     True),
             ("Department Head",   "View and manage their department's employees and data",  True),
-            ("Employee",          "Access to personal modules: leaves, payslips, profile",  True),
+            ("Employee",          "Access to personal modules: leaves, profile",            True),
         ]
         if db.query(models.Role).count() == 0:
             for name, desc, is_sys in ROLE_DEFS:
@@ -518,30 +400,26 @@ def startup():
 
         # ── RBAC: Link existing users to their roles ────────────────────
         roles_map = {r.name: r.id for r in db.query(models.Role).all()}
-        depts_map = {d.name: d.id for d in db.query(models.Department).all()}
         admin_user = db.query(models.User).filter(models.User.email == "admin@enterpriseos.com").first()
         if admin_user and not admin_user.role_id:
             admin_user.role_id = roles_map.get("Admin")
         emp_user = db.query(models.User).filter(models.User.email == "employee@enterpriseos.com").first()
         if emp_user and not emp_user.role_id:
             emp_user.role_id = roles_map.get("Employee")
-            emp_user.department_id = depts_map.get("Engineering")
 
         # ── RBAC: Seed test users for each non-trivial role ─────────────
-        db.flush()  # ensure prior inserts are visible to subsequent queries
+        db.flush()
         TEST_USERS = [
-            # (name, email, password, role_str, role_name_in_db, dept_name)
-            ("Sarah HR", "hr@enterpriseos.com", "hr1234", "hr_manager", "HR Manager", "HR"),
-            ("Frank Finance", "finance@enterpriseos.com", "finance123", "finance_manager", "Finance Manager", "Finance"),
-            ("Max Projects", "pm@enterpriseos.com", "pm1234", "project_manager", "Project Manager", "Engineering"),
-            ("Super Admin", "superadmin@enterpriseos.com", "super123", "super_admin", "Super Admin", None),
-            # Dept head test accounts — emails match Employee records so scoping auto-detects correctly
-            ("Sarah Chen", "sarah.chen@co.com", "dept1234", "dept_head", "Department Head", "Engineering"),
-            ("Marcus Johnson", "marcus.j@co.com", "dept1234", "dept_head", "Department Head", "Sales"),
+            ("Sarah HR", "hr@enterpriseos.com", "hr1234", "hr_manager", "HR Manager"),
+            ("Frank Finance", "finance@enterpriseos.com", "finance123", "finance_manager", "Finance Manager"),
+            ("Max Projects", "pm@enterpriseos.com", "pm1234", "project_manager", "Project Manager"),
+            ("Super Admin", "superadmin@enterpriseos.com", "super123", "super_admin", "Super Admin"),
+            ("Sarah Chen", "sarah.chen@co.com", "dept1234", "dept_head", "Department Head"),
+            ("Marcus Johnson", "marcus.j@co.com", "dept1234", "dept_head", "Department Head"),
         ]
         from sqlalchemy import text as _text
         existing_emails = {row[0] for row in db.execute(_text("SELECT email FROM users")).fetchall()}
-        for name, email, password, role_str, role_name, dept_name in TEST_USERS:
+        for name, email, password, role_str, role_name in TEST_USERS:
             if email not in existing_emails:
                 u = models.User(
                     name=name,
@@ -549,18 +427,14 @@ def startup():
                     hashed_password=get_password_hash(password),
                     role=role_str,
                     role_id=roles_map.get(role_name),
-                    department_id=depts_map.get(dept_name) if dept_name else None,
                 )
                 db.add(u)
             else:
-                # Ensure password is up-to-date on restarts (fixes previously seeded short passwords)
                 existing = db.query(models.User).filter(models.User.email == email).first()
                 if existing:
                     existing.hashed_password = get_password_hash(password)
 
-        # ── Safe upsert: analytics-specific permissions ──────────────────
-        # These are inserted regardless of whether PERM_DEFS were seeded earlier,
-        # so they survive restarts against a pre-existing DB.
+        # ── Analytics-specific permissions ──────────────────────────────
         ANALYTICS_PERMS = [
             ("view_hr_analytics",      "Access HR analytics dashboards and workforce reports", "analytics"),
             ("view_finance_analytics", "Access finance analytics and financial reports",        "analytics"),
@@ -600,7 +474,6 @@ def startup():
                 "Target user not found in directory",
             ]
 
-            # (workflow_name, total_runs, success_count, avg_duration_ms, span_days)
             WF_RUN_CONFIGS = [
                 ("New Employee Onboarding",    48,  45,  1850, 90),
                 ("Invoice Payment Reminder",  124, 120,   420, 90),
@@ -609,7 +482,6 @@ def startup():
                 ("Low Stock Alert",            12,  10,   310, 60),
             ]
 
-            # Duration deltas per run index (cycles every 7) — deterministic variation
             DUR_DELTAS = [-180, -90, 0, 120, -60, 200, -130]
 
             for wf_name, total, success_count, avg_dur, span in WF_RUN_CONFIGS:
@@ -618,7 +490,6 @@ def startup():
                     continue
 
                 failed_count = total - success_count
-                # Mark evenly spaced indices as failed across the run history
                 fail_step = max(1, total // (failed_count + 1)) if failed_count > 0 else 0
                 fail_indices = {fail_step * (k + 1) for k in range(failed_count)} if fail_step else set()
 
@@ -640,7 +511,6 @@ def startup():
                         error_message=error,
                     ))
 
-                # Sync the legacy counter and last_run on the Workflow row
                 wf.runs = total
                 if total > 0:
                     wf.last_run = str(now - dt.timedelta(days=(span / total), minutes=7))

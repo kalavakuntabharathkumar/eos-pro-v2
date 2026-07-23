@@ -65,10 +65,10 @@ const CONFIGS: Record<string, DashboardConfig> = {
     title: "My Workspace",
     subtitle: "Your personal overview and tasks.",
     quickActions: [
-      { label: "Submit Leave Request", href: "/hrms/leaves",   color: C.indigo },
-      { label: "My Projects",          href: "/projects",      color: C.purple },
-      { label: "Notifications",        href: "/notifications", color: C.amber  },
-      { label: "Insights",              href: "/ai-copilot",    color: C.blue   },
+      { label: "Submit Leave Request", href: "/hrms/leaves", color: C.indigo },
+      { label: "My Projects",          href: "/projects",    color: C.purple },
+      { label: "Timesheets",           href: "/timesheets",  color: C.amber  },
+      { label: "Insights",             href: "/ai",          color: C.blue   },
     ],
   },
 };

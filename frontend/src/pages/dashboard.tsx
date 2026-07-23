@@ -1,5 +1,5 @@
 import React from "react";
-import { useGetDashboardStats, useGetRevenueTrend, useListNotifications } from "@workspace/api-client-react";
+import { useGetDashboardStats, useGetRevenueTrend } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,6 @@ const FALLBACK_REVENUE = [
   { month: "Dec", revenue: 815000, expenses: 390000 },
 ];
 
-
 const ACTION_ICON: Record<string, string> = {
   login: "🔐", leave_submitted: "📋",
   approved_stage1: "✅", approved_final: "✅",
@@ -70,7 +69,6 @@ function getRoleKpis(
   role: string,
   stats: any,
   pendingLeaves: number,
-  unread: number,
   empStats: any,
 ): KpiItem[] {
   const s = stats ?? {};
@@ -112,9 +110,9 @@ function getRoleKpis(
     default:
       return [
         { title: "Active Projects",  value: s.active_projects ?? 0, trend: "assigned to you",  up: true,  icon: Briefcase,    color: "bg-purple-50 text-purple-600"   },
-        { title: "Unread Alerts",    value: unread,                  trend: "in inbox",         up: false, icon: Bell,         color: "bg-amber-50 text-amber-600"     },
         { title: "Open Leads",       value: s.open_leads ?? 0,      trend: "pipeline",         up: true,  icon: Target,       color: "bg-indigo-50 text-indigo-600"   },
         { title: "Team Size",        value: s.total_employees ?? 0, trend: "org members",      up: true,  icon: Users,        color: "bg-emerald-50 text-emerald-600" },
+        { title: "Revenue",          value: `$${((s.total_revenue ?? 0) / 1000).toFixed(0)}k`, trend: "this period", up: true, icon: DollarSign, color: "bg-amber-50 text-amber-600" },
       ];
   }
 }
@@ -264,61 +262,10 @@ function MiddleRow({
     );
   }
 
-  // employee — my leaves + unread notifications summary
+  // employee — my leaves + projects
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      <div className="lg:col-span-2"><MyLeavesWidget /></div>
-      <Card className="border-gray-100 shadow-sm bg-white">
-        <CardHeader className="pb-0 pt-5 px-6">
-          <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-indigo-400" />
-            <CardTitle className="text-base font-semibold text-gray-900">My Notifications</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 pt-4">
-          <UnreadNotificationsPanel />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ─── Unread notifications panel (employee) ─────────────────────────────────
-
-function UnreadNotificationsPanel() {
-  const navigate = useNavigate();
-  const { data: notifications } = useListNotifications();
-  const items = (notifications as any[]) ?? [];
-  const unread = items.filter((n: any) => !n.read).slice(0, 5);
-
-  if (unread.length === 0) {
-    return (
-      <div className="text-center py-6">
-        <Bell className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-        <p className="text-sm text-gray-400">All caught up!</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {unread.map((n: any, i: number) => (
-        <div key={n.id ?? i} className="flex items-start gap-2 p-2.5 rounded-lg bg-gray-50">
-          <div className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase flex-shrink-0 mt-0.5 ${TYPE_COLORS[n.type] ?? TYPE_COLORS.info}`}>
-            {n.type}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-gray-800 truncate">{n.title}</p>
-            <p className="text-[10px] text-gray-500 truncate">{n.message}</p>
-          </div>
-        </div>
-      ))}
-      <button
-        onClick={() => navigate("/notifications")}
-        className="w-full text-xs text-indigo-600 font-medium hover:underline pt-1 flex items-center justify-center gap-1"
-      >
-        View all <ArrowUpRight className="w-3 h-3" />
-      </button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <MyLeavesWidget />
     </div>
   );
 }
@@ -351,7 +298,6 @@ export default function Dashboard() {
 
   const { data: stats, isLoading } = useGetDashboardStats();
   const { data: revenueTrend }     = useGetRevenueTrend();
-  const { data: notifications }    = useListNotifications();
 
   const { data: attendanceData } = useQuery<{ weekly: any[]; avg_attendance: number }>({
     queryKey: ["weekly-attendance"],
@@ -362,7 +308,7 @@ export default function Dashboard() {
 
   const { data: activityLogs } = useQuery<any[]>({
     queryKey: ["activity-feed"],
-    queryFn: () => fetchWithAuth("/api/activity"),
+    queryFn: () => fetchWithAuth("/api/dashboard/activity"),
     refetchInterval: 30000,
   });
 
@@ -385,12 +331,10 @@ export default function Dashboard() {
     enabled: ["admin", "super_admin", "hr_manager", "dept_head"].includes(role),
   });
 
-  const unreadCount = ((notifications as any[]) ?? []).filter((n: any) => !n.read).length;
   const chartData   = (revenueTrend as any[])?.length ? revenueTrend as any[] : FALLBACK_REVENUE;
-  const kpis        = getRoleKpis(role, stats, pendingLeaveCount as number, unreadCount, empStats);
+  const kpis        = getRoleKpis(role, stats, pendingLeaveCount as number, empStats);
 
   const activityItems: any[] = activityLogs ?? [];
-  const fallbackActivity     = ((notifications as any[]) ?? []).slice(0, 6);
 
   const weeklyAttData = attendanceData?.weekly ?? [];
   const weeklyAttAvg  = attendanceData?.avg_attendance ?? 0;
@@ -451,12 +395,6 @@ export default function Dashboard() {
                 </CardTitle>
                 {activityItems.length > 0 && <Activity className="w-4 h-4 text-indigo-400" />}
               </div>
-              <button
-                onClick={() => navigate("/notifications")}
-                className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-              >
-                View all
-              </button>
             </div>
           </CardHeader>
           <CardContent className="px-6 pb-5">
@@ -487,19 +425,9 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
-                {fallbackActivity.slice(0, 5).map((item: any, i) => (
-                  <div key={i} className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
-                    <div className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 mt-0.5 ${TYPE_COLORS[item.type] ?? TYPE_COLORS.info}`}>
-                      {item.type}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{item.title}</p>
-                      <p className="text-xs text-gray-500 truncate">{item.message}</p>
-                    </div>
-                    {!item.read && <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1.5" />}
-                  </div>
-                ))}
+              <div className="text-center py-8 text-gray-400">
+                <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No recent activity</p>
               </div>
             )}
           </CardContent>

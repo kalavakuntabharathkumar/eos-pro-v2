@@ -32,13 +32,6 @@ class TriggerDispatcher:
             if run.status == "completed"
             else f'Workflow "{workflow.name}" failed: {run.error_message}'
         )
-        self.db.add(
-            models.Notification(
-                title="Workflow Execution",
-                message=notif_msg,
-                type=notif_type,
-            )
-        )
         self.db.commit()
 
         return {
